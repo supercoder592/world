@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>太平洋浮標 | GOD-EYE OSINT SYSTEM</title>
+
+  <!-- ============================================================
+       【CDN 資源載入】
+       1. CesiumJS 3D 地球渲染引擎 (含核心 JS 與 Widgets CSS)
+       2. Tailwind CSS (打造 Cyberpunk 暗色調 UI)
+       ============================================================ -->
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* ============================================================
+       【全域自訂樣式】— 軍規 / Cyberpunk 風格
+       主色調:深灰黑 #0f172a、螢光綠 #10b981、科技藍 #06b6d4
+       ============================================================ */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0f172a;
+      font-family: 'Consolas', 'Courier New', 'Microsoft JhengHei', monospace;
+    }
+
+    /* Cesium 3D 地球容器:鋪滿整個畫面 */
+    #cesiumContainer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 隱藏 Cesium 版權列 (原型展示用,正式產品請保留版權宣告) */
+    .cesium-viewer-bottom {
+      display: none !important;
+    }
+
+    /* 半透明模糊玻璃面板 (Glassmorphism) */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.15), inset 0 0 30px rgba(16, 185, 129, 0.05);
+    }
+
+    /* 螢光文字光暈效果 */
+    .glow-green { text-shadow: 0 0 8px rgba(16, 185, 129, 0.8); }
+    .glow-cyan  { text-shadow: 0 0 8px rgba(6, 182, 212, 0.8); }
+
+    /* 頂部情報滾動條:跑馬燈動畫 */
+    .ticker-wrap {
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .ticker-content {
+      display: inline-block;
+      padding-left: 100%;
+      animation: ticker-scroll 30s linear infinite;
+    }
+    @keyframes ticker-scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+
+    /* 系統狀態呼吸燈 */
+    .pulse-dot {
+      animation: pulse-glow 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1;   box-shadow: 0 0 6px #10b981, 0 0 12px #10b981; }
+      50%      { opacity: 0.4; box-shadow: 0 0 2px #10b981; }
+    }
+
+    /* 掃描線特效:增添監控螢幕質感 (不阻擋滑鼠事件) */
+    .scanlines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 40;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(6, 182, 212, 0.02) 3px,
+        rgba(6, 182, 212, 0.02) 4px
+      );
+    }
+
+    /* Toggle 開關樣式 (純 CSS 實作) */
+    .toggle-track {
+      width: 44px;
+      height: 22px;
+      border-radius: 9999px;
+      background: rgba(100, 116, 139, 0.4);
+      border: 1px solid rgba(100, 116, 139, 0.6);
+      position: relative;
+      transition: all 0.25s ease;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #64748b;
+      transition: all 0.25s ease;
+    }
+    input:checked + .toggle-track {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: #10b981;
+    }
+    input:checked + .toggle-track .toggle-thumb {
+      left: 24px;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    /* 資訊卡進場動畫 */
+    .info-card-enter {
+      animation: card-slide-in 0.25s ease-out;
+    }
+    @keyframes card-slide-in {
+      from { transform: translateX(30px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    /* 資料列表捲軸美化 */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.5); border-radius: 3px; }
+  </style>
+</head>
+
+<body>
+  <!-- ============================================================
+       【3D 地球主容器】
+       ============================================================ -->
+  <div id="cesiumContainer"></div>
+
+  <!-- 掃描線覆蓋層 (視覺特效) -->
+  <div class="scanlines"></div>
+
+  <!-- ============================================================
+       【頂部情報滾動條】— 模擬動態情資訊息跑馬燈
+       ============================================================ -->
+  <div class="fixed top-0 left-0 right-0 z-50 glass-panel border-x-0 border-t-0">
+    <div class="flex items-center h-9">
+      <div class="flex items-center gap-2 px-4 border-r border-emerald-500/30 h-full bg-slate-900/60 shrink-0">
+        <span class="pulse-dot w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+        <span class="text-emerald-400 text-xs font-bold tracking-widest glow-green">LIVE</span>
+      </div>
+      <div class="ticker-wrap flex-1 text-xs text-cyan-300 tracking-wider">
+        <span class="ticker-content" id="tickerText">
+          [SYSTEM ONLINE] PACIFIC BUOY OSINT NETWORK ACTIVE &nbsp;◆&nbsp;
+          MONITORED ASSETS: 10,000+ &nbsp;◆&nbsp;
+          SATELLITE UPLINK: STABLE &nbsp;◆&nbsp;
+          DATA SOURCES: OPENSKY NETWORK / USGS SEISMIC FEED &nbsp;◆&nbsp;
+          ENCRYPTION: AES-256 SECURE CHANNEL &nbsp;◆&nbsp;
+          太平洋浮標 全球即時情報監控平台 運作中 &nbsp;◆&nbsp;
+          [ALERT LEVEL: GREEN] ALL SECTORS NOMINAL
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       【左側浮動面板】— 系統標題 + 全球即時狀態統計
+       ============================================================ -->
+  <div class="fixed top-14 left-4 z-50 w-72 glass-panel rounded-lg p-4 select-none">
+    <!-- 系統標題 -->
+    <div class="border-b border-emerald-500/30 pb-3 mb-3">
+      <h1 class="text-emerald-400 text-lg font-black tracking-widest glow-green">GOD-EYE</h1>
+      <p class="text-cyan-400 text-[10px] tracking-[0.3em] glow-cyan">OSINT SYSTEM v2.5</p>
+      <p class="text-slate-400 text-[11px] mt-1 tracking-wider">代號:太平洋浮標 / PACIFIC BUOY</p>
+    </div>
+
+    <!-- 即時統計數據 -->
+    <div class="space-y-3 text-xs">
+      <div class="flex justify-between items-center">
+        <span class="text-slate-400 tracking-wider">✈ 追蹤中航班</span>
+        <span id="statFlights" class="text-emerald-400 font-bold text-base glow-green">---</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-slate-400 tracking-wider">◉ 24H 地震事件</span>
+        <span id="statQuakes" class="text-orange-400 font-bold text-base" style="text-shadow: 0 0 8px rgba(251,146,60,0.8)">---</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-slate-400 tracking-wider">⏱ 系統運作時間</span>
+        <span id="statUptime" class="text-cyan-400 font-bold glow-cyan">00:00:00</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-slate-400 tracking-wider">⟳ 航班資料更新</span>
+        <span id="statLastUpdate" class="text-slate-300">--:--:--</span>
+      </div>
+    </div>
+
+    <!-- 資料來源狀態指示 -->
+    <div class="border-t border-emerald-500/30 mt-3 pt-3 space-y-1.5 text-[10px]">
+      <div class="flex items-center gap-2">
+        <span id="ledOpenSky" class="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block"></span>
+        <span class="text-slate-400 tracking-wider">OPENSKY NETWORK UPLINK</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="ledUSGS" class="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block"></span>
+        <span class="text-slate-400 tracking-wider">USGS SEISMIC FEED</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       【右側圖層切換器】— Layer Controls
+       ============================================================ -->
+  <div class="fixed top-14 right-4 z-50 w-60 glass-panel rounded-lg p-4 select-none">
+    <h2 class="text-cyan-400 text-xs font-bold tracking-[0.25em] glow-cyan border-b border-cyan-500/30 pb-2 mb-3">
+      ▤ LAYER CONTROLS
+    </h2>
+
+    <!-- 即時航班圖層開關 -->
+    <label class="flex items-center justify-between mb-3 cursor-pointer">
+      <div>
+        <p class="text-slate-200 text-xs tracking-wider">即時航班</p>
+        <p class="text-slate-500 text-[10px]">FLIGHT TRACKING</p>
+      </div>
+      <input type="checkbox" id="toggleFlights" class="hidden" checked />
+      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+    </label>
+
+    <!-- 地震資訊圖層開關 -->
+    <label class="flex items-center justify-between cursor-pointer">
+      <div>
+        <p class="text-slate-200 text-xs tracking-wider">地震資訊</p>
+        <p class="text-slate-500 text-[10px]">SEISMIC EVENTS</p>
+      </div>
+      <input type="checkbox" id="toggleQuakes" class="hidden" checked />
+      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+    </label>
+  </div>
+
+  <!-- ============================================================
+       【目標資訊卡】— 點擊飛機/地震時彈出的科技感情報卡
+       ============================================================ -->
+  <div id="infoCard" class="hidden fixed bottom-6 right-4 z-50 w-72 glass-panel rounded-lg p-4 select-none">
+    <div class="flex justify-between items-start border-b border-emerald-500/30 pb-2 mb-3">
+      <div>
+        <p class="text-[10px] text-cyan-400 tracking-[0.25em] glow-cyan" id="infoCardType">TARGET ACQUIRED</p>
+        <h3 class="text-emerald-400 font-black text-base tracking-widest glow-green" id="infoCardTitle">---</h3>
+      </div>
+      <button id="infoCardClose" class="text-slate-400 hover:text-red-400 text-sm leading-none px-1">✕</button>
+    </div>
+    <div id="infoCardBody" class="space-y-2 text-xs"></div>
+  </div>
+
+  <!-- ============================================================
+       【主程式 JavaScript】
+       ============================================================ -->
+  <script>
+    'use strict';
+
+    /* ==========================================================
+       【全域設定常數】
+       ========================================================== */
+    const CONFIG = {
+      // OpenSky 即時航班 API (匿名存取,注意頻率限制)
+      OPENSKY_API: 'https://opensky-network.org/api/states/all',
+      // USGS 過去 24 小時全球地震 GeoJSON
+      USGS_API: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
+      // Esri World Imagery 衛星圖磚 (無須 API Key)
+      ESRI_IMAGERY_URL: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      // 航班資料更新頻率:15 秒 (避免請求過於頻繁被 OpenSky 封鎖 IP)
+      FLIGHT_REFRESH_MS: 15000,
+      // 地震資料更新頻率:5 分鐘 (USGS feed 本身約每分鐘更新,無須太頻繁)
+      QUAKE_REFRESH_MS: 300000,
+      // 最大渲染航班數量 (效能保護:全球同時約有上萬架航班)
+      MAX_FLIGHTS: 800,
+      // API 逾時毫秒數
+      FETCH_TIMEOUT_MS: 12000,
+    };
+
+    /* ==========================================================
+       【1. Cesium 3D 地球初始化】
+       - 不使用 Cesium ion 服務 (無須 Token)
+       - 底圖改用 Esri World Imagery 高畫質衛星影像
+       - 關閉所有預設冗餘 UI 控制項
+       ========================================================== */
+    // 清空預設 ion token,避免 console 出現無效 token 警告
+    Cesium.Ion.defaultAccessToken = undefined;
+
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      // 底圖:Esri World Imagery (UrlTemplateImageryProvider 直接取用公開圖磚)
+      baseLayer: new Cesium.ImageryLayer(
+        new Cesium.UrlTemplateImageryProvider({
+          url: CONFIG.ESRI_IMAGERY_URL,
+          credit: 'Esri World Imagery',
+          maximumLevel: 18,
+        })
+      ),
+      // ---- 隱藏所有 Cesium 預設冗餘控制項,打造乾淨的監控 UI ----
+      baseLayerPicker: false,      // 底圖選擇器
+      geocoder: false,             // Bing 搜尋列
+      homeButton: false,           // 回首頁按鈕
+      sceneModePicker: false,      // 2D/3D 模式切換
+      navigationHelpButton: false, // 導覽說明
+      animation: false,            // 動畫控制器 (左下角時鐘)
+      timeline: false,             // 底部時間軸
+      fullscreenButton: false,     // 全螢幕按鈕
+      vrButton: false,             // VR 按鈕
+      infoBox: false,              // 預設資訊框 (改用自訂科技感資訊卡)
+      selectionIndicator: false,   // 預設選取框
+      requestRenderMode: false,    // 保持連續渲染以顯示動態效果
+    });
+
+    // 深色太空背景與大氣層微調,強化軍規監控氛圍
+    viewer.scene.globe.enableLighting = false;
+    viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0f172a');
+    viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#020617');
+    viewer.scene.globe.showGroundAtmosphere = true;
+
+    // 初始鏡頭:定位於太平洋上空 (呼應「太平洋浮標」代號)
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(150.0, 20.0, 22000000),
+      duration: 2.5,
+    });
+
+    /* ==========================================================
+       【圖層資料來源 (CustomDataSource)】
+       使用獨立 DataSource 管理航班與地震實體,
+       方便一鍵 show/hide 整個圖層。
+       ========================================================== */
+    const flightLayer = new Cesium.CustomDataSource('flights');
+    const quakeLayer = new Cesium.CustomDataSource('earthquakes');
+    viewer.dataSources.add(flightLayer);
+    viewer.dataSources.add(quakeLayer);
+
+    /* ==========================================================
+       【共用工具函式】
+       ========================================================== */
+
+    /**
+     * 帶逾時控制的 fetch 包裝
+     * @param {string} url - 請求網址
+     * @returns {Promise<Response>}
+     */
+    function fetchWithTimeout(url) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
+      return fetch(url, { signal: controller.signal })
+        .finally(() => clearTimeout(timer));
+    }
+
+    /**
+     * 更新資料來源 LED 狀態燈
+     * @param {string} id - LED 元素 ID
+     * @param {boolean} ok - 連線是否正常
+     */
+    function setLed(id, ok) {
+      const el = document.getElementById(id);
+      el.className = ok
+        ? 'w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block pulse-dot'
+        : 'w-1.5 h-1.5 rounded-full bg-red-500 inline-block';
+    }
+
+    /** 產生飛機圖示 (SVG Data URI,螢光綠機型剪影,無外部圖檔依賴) */
+    const PLANE_SVG = 'data:image/svg+xml;base64,' + btoa(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+        <path d="M16 2 L18 12 L29 18 L29 21 L18 17 L17.5 25 L21 28 L21 30 L16 28.5 L11 30 L11 28 L14.5 25 L14 17 L3 21 L3 18 L14 12 Z"
+          fill="#10b981" stroke="#022c22" stroke-width="0.8"/>
+      </svg>`
+    );
+
+    /* ==========================================================
+       【2. 即時航班追蹤層 (Flight Tracking)】
+       串接 OpenSky Network,以真實高度將飛機標註於 3D 空間。
+       ========================================================== */
+
+    // 航班實體快取:key 為 icao24,value 為 Cesium Entity (避免每次重建、提升效能)
+    const flightEntities = new Map();
+    let flightFetchInFlight = false; // 防止上一輪請求未完成又發出新請求
+
+    /**
+     * 從 OpenSky API 抓取全球航班狀態並更新 3D 圖層
+     */
+    async function updateFlights() {
+      if (flightFetchInFlight) return; // 節流:前一請求尚未完成則跳過本輪
+      flightFetchInFlight = true;
+
+      try {
+        const res = await fetchWithTimeout(CONFIG.OPENSKY_API);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data || !Array.isArray(data.states)) {
+          throw new Error('OpenSky 回傳格式異常 (states 欄位缺失)');
+        }
+
+        renderFlights(data.states);
+        setLed('ledOpenSky', true);
+        document.getElementById('statLastUpdate').textContent =
+          new Date().toLocaleTimeString('zh-TW', { hour12: false });
+      } catch (err) {
+        // 【API 異常 fallback 機制】
+        // OpenSky 匿名存取常因流量限制回傳 429/503,或因 CORS/網路問題失敗。
+        // 此時保留畫面上既有航班 (不清空),並於 console 提示,等待下一輪重試。
+        console.warn('[太平洋浮標] OpenSky 航班資料取得失敗,保留上一輪資料並將於下一輪自動重試:', err.message);
+        setLed('ledOpenSky', false);
+
+        // 若從未成功取得任何資料,啟用模擬航班展示模式 (Demo Fallback)
+        if (flightEntities.size === 0) {
+          console.info('[太平洋浮標] 啟用模擬航班展示模式 (Demo Mode)');
+          renderFlights(generateMockFlights());
+          document.getElementById('statLastUpdate').textContent = 'DEMO MODE';
+        }
+      } finally {
+        flightFetchInFlight = false;
+      }
+    }
+
+    /**
+     * 將 OpenSky state vectors 渲染為 3D 實體
+     * OpenSky state 陣列索引對照:
+     *   [0] icao24  [1] callsign  [2] origin_country
+     *   [5] longitude  [6] latitude  [7] baro_altitude(m)
+     *   [9] velocity(m/s)  [10] true_track(deg)  [13] geo_altitude(m)
+     * @param {Array[]} states - OpenSky state vectors
+     */
+    function renderFlights(states) {
+      const seen = new Set();
+      let rendered = 0;
+
+      for (const s of states) {
+        if (rendered >= CONFIG.MAX_FLIGHTS) break; // 效能保護上限
+
+        const [icao24, callsign, country] = [s[0], (s[1] || '').trim(), s[2]];
+        const lon = s[5], lat = s[6];
+        // 高度優先採 GPS 幾何高度 (geo_altitude),否則用氣壓高度,地面則為 0
+        const alt = (s[13] ?? s[7]) ?? 0;
+
+        // 過濾無座標的資料點
+        if (lon == null || lat == null) continue;
+
+        seen.add(icao24);
+        rendered++;
+
+        const position = Cesium.Cartesian3.fromDegrees(lon, lat, Math.max(alt, 0));
+        const heading = Cesium.Math.toRadians(s[10] || 0);
+        const existing = flightEntities.get(icao24);
+
+        if (existing) {
+          // 已存在的航班:僅更新位置與屬性 (避免重建實體)
+          existing.position = position;
+          existing.billboard.rotation = -heading; // Cesium rotation 為逆時針,航向需取負
+          existing.properties.velocity = s[9];
+          existing.properties.altitude = alt;
+          existing.properties.callsign = callsign;
+        } else {
+          // 新出現的航班:建立 billboard 實體 (貼合真實飛行高度)
+          const entity = flightLayer.entities.add({
+            id: 'flight-' + icao24,
+            position: position,
+            billboard: {
+              image: PLANE_SVG,
+              width: 22,
+              height: 22,
+              rotation: -heading,
+              alignedAxis: Cesium.Cartesian3.UNIT_Z,
+              // 遠距離縮小圖示,減少視覺雜訊
+              scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 1.2e7, 0.35),
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            },
+            properties: {
+              type: 'flight',
+              icao24: icao24,
+              callsign: callsign,
+              country: country,
+              altitude: alt,
+              velocity: s[9],
+            },
+          });
+          flightEntities.set(icao24, entity);
+        }
+      }
+
+      // 移除本輪已消失的航班 (降落 / 離開偵測範圍)
+      for (const [icao24, entity] of flightEntities) {
+        if (!seen.has(icao24)) {
+          flightLayer.entities.remove(entity);
+          flightEntities.delete(icao24);
+        }
+      }
+
+      // 更新左側儀表板統計
+      document.getElementById('statFlights').textContent = rendered.toLocaleString();
+    }
+
+    /**
+     * 【Fallback】產生模擬航班資料 (OpenSky 完全無法連線時的展示模式)
+     * 以太平洋周邊主要航線節點隨機生成,格式與 OpenSky state vectors 相容
+     */
+    function generateMockFlights() {
+      const hubs = [
+        [121.2, 25.1], [139.8, 35.6], [114.2, 22.3], [103.9, 1.4],
+        [151.2, -33.9], [-118.4, 33.9], [-122.4, 37.6], [126.4, 37.5],
+      ];
+      const mock = [];
+      for (let i = 0; i < 120; i++) {
+        const hub = hubs[i % hubs.length];
+        const s = new Array(17).fill(null);
+        s[0] = 'demo' + String(i).padStart(4, '0');            // icao24
+        s[1] = 'SIM' + (1000 + i);                              // callsign
+        s[2] = 'Simulation';                                    // country
+        s[5] = hub[0] + (Math.random() - 0.5) * 30;             // lon
+        s[6] = hub[1] + (Math.random() - 0.5) * 20;             // lat
+        s[7] = 8000 + Math.random() * 4000;                     // baro_altitude
+        s[9] = 200 + Math.random() * 80;                        // velocity
+        s[10] = Math.random() * 360;                            // true_track
+        s[13] = s[7];                                           // geo_altitude
+        mock.push(s);
+      }
+      return mock;
+    }
+
+    /* ==========================================================
+       【3. 全球即時地震監測層 (Earthquake Alert)】
+       串接 USGS,以紅/橙色半透明圓圈標示,大小依規模動態調整。
+       ========================================================== */
+
+    /**
+     * 從 USGS API 抓取過去 24 小時地震並渲染
+     */
+    async function updateQuakes() {
+      try {
+        const res = await fetchWithTimeout(CONFIG.USGS_API);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const geojson = await res.json();
+
+        if (!geojson || !Array.isArray(geojson.features)) {
+          throw new Error('USGS 回傳格式異常 (features 欄位缺失)');
+        }
+
+        // 全量重繪 (地震為靜態事件點,每 5 分鐘更新一次,重建成本低)
+        quakeLayer.entities.removeAll();
+        let count = 0;
+
+        for (const f of geojson.features) {
+          const mag = f.properties?.mag;
+          const coords = f.geometry?.coordinates; // [lon, lat, depth(km)]
+          if (mag == null || !coords) continue;
+
+          const [lon, lat] = coords;
+          count++;
+
+          // 規模 >= 5 使用警戒紅色,其餘使用橙色
+          const isMajor = mag >= 5;
+          const color = isMajor
+            ? Cesium.Color.fromCssColorString('#ef4444') // 紅
+            : Cesium.Color.fromCssColorString('#f97316'); // 橙
+
+          // 圓圈半徑依規模呈指數放大 (芮氏規模本身為對數尺度)
+          // M2 ≈ 18km、M5 ≈ 75km、M7 ≈ 190km,視覺上具鑑別度
+          const radius = Math.max(12000, Math.pow(2, mag) * 4500);
+
+          quakeLayer.entities.add({
+            id: 'quake-' + f.id,
+            position: Cesium.Cartesian3.fromDegrees(lon, lat),
+            // 半透明實心圓 (貼地橢圓)
+            ellipse: {
+              semiMajorAxis: radius,
+              semiMinorAxis: radius,
+              material: color.withAlpha(0.35),
+              outline: true,
+              outlineColor: color.withAlpha(0.9),
+              height: 0,
+            },
+            // 中心亮點,方便小規模地震辨識與點擊
+            point: {
+              pixelSize: isMajor ? 7 : 4,
+              color: color,
+              outlineColor: Cesium.Color.WHITE.withAlpha(0.6),
+              outlineWidth: 1,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            },
+            properties: {
+              type: 'quake',
+              mag: mag,
+              place: f.properties.place || 'Unknown location',
+              time: f.properties.time,
+              depth: coords[2],
+            },
+          });
+        }
+
+        document.getElementById('statQuakes').textContent = count.toLocaleString();
+        setLed('ledUSGS', true);
+      } catch (err) {
+        // 【API 異常 fallback】保留既有地震圖層,console 提示後等待下一輪重試
+        console.warn('[太平洋浮標] USGS 地震資料取得失敗,保留上一輪資料並將於下一輪自動重試:', err.message);
+        setLed('ledUSGS', false);
+      }
+    }
+
+    /* ==========================================================
+       【4. 點擊互動:科技感目標資訊卡】
+       使用 ScreenSpaceEventHandler 攔截左鍵點擊,
+       拾取 (pick) 3D 實體後彈出自訂資訊卡。
+       ========================================================== */
+    const infoCard = document.getElementById('infoCard');
+    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+
+    handler.setInputAction((click) => {
+      const picked = viewer.scene.pick(click.position);
+
+      // 點到空白處:關閉資訊卡
+      if (!Cesium.defined(picked) || !picked.id || !picked.id.properties) {
+        infoCard.classList.add('hidden');
+        return;
+      }
+
+      const props = picked.id.properties;
+      const type = props.type?.getValue();
+
+      if (type === 'flight') {
+        // ---- 航班資訊卡:ICAO24 / 呼號 / 國家 / 高度 / 速度 ----
+        showInfoCard('AIRCRAFT TRACKED', props.callsign?.getValue() || '(無呼號)', [
+          ['ICAO24 識別碼', (props.icao24?.getValue() || '---').toUpperCase()],
+          ['註冊國家', props.country?.getValue() || '---'],
+          ['即時高度', formatAltitude(props.altitude?.getValue())],
+          ['地速', formatVelocity(props.velocity?.getValue())],
+        ]);
+      } else if (type === 'quake') {
+        // ---- 地震資訊卡:規模 / 位置 / 深度 / 時間 ----
+        const mag = props.mag?.getValue();
+        showInfoCard('SEISMIC EVENT', 'M ' + (mag != null ? mag.toFixed(1) : '?'), [
+          ['震央位置', props.place?.getValue() || '---'],
+          ['震源深度', props.depth?.getValue() != null ? props.depth.getValue().toFixed(1) + ' km' : '---'],
+          ['發生時間', props.time?.getValue()
+            ? new Date(props.time.getValue()).toLocaleString('zh-TW', { hour12: false })
+            : '---'],
+        ]);
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    /**
+     * 顯示資訊卡
+     * @param {string} typeLabel - 卡片類型標籤 (英文)
+     * @param {string} title - 主標題
+     * @param {Array<[string,string]>} rows - [欄位名稱, 值] 資料列
+     */
+    function showInfoCard(typeLabel, title, rows) {
+      document.getElementById('infoCardType').textContent = '▸ ' + typeLabel;
+      document.getElementById('infoCardTitle').textContent = title;
+      document.getElementById('infoCardBody').innerHTML = rows.map(([k, v]) => `
+        <div class="flex justify-between gap-3">
+          <span class="text-slate-400 tracking-wider shrink-0">${k}</span>
+          <span class="text-emerald-300 text-right break-all">${v}</span>
+        </div>
+      `).join('');
+
+      infoCard.classList.remove('hidden');
+      // 重觸發進場動畫
+      infoCard.classList.remove('info-card-enter');
+      void infoCard.offsetWidth;
+      infoCard.classList.add('info-card-enter');
+    }
+
+    /** 高度格式化:公尺 → 顯示 m 與英呎 */
+    function formatAltitude(m) {
+      if (m == null) return '---';
+      return `${Math.round(m).toLocaleString()} m (${Math.round(m * 3.281).toLocaleString()} ft)`;
+    }
+
+    /** 速度格式化:m/s → km/h 與節 */
+    function formatVelocity(ms) {
+      if (ms == null) return '---';
+      return `${Math.round(ms * 3.6)} km/h (${Math.round(ms * 1.944)} kt)`;
+    }
+
+    // 資訊卡關閉按鈕
+    document.getElementById('infoCardClose').addEventListener('click', () => {
+      infoCard.classList.add('hidden');
+    });
+
+    /* ==========================================================
+       【5. 圖層切換器 (Layer Toggles)】
+       ========================================================== */
+    document.getElementById('toggleFlights').addEventListener('change', (e) => {
+      flightLayer.show = e.target.checked; // 一鍵切換整個航班 DataSource 顯示狀態
+    });
+    document.getElementById('toggleQuakes').addEventListener('change', (e) => {
+      quakeLayer.show = e.target.checked;
+    });
+
+    /* ==========================================================
+       【6. 系統運作時間計時器】
+       ========================================================== */
+    const bootTime = Date.now();
+    setInterval(() => {
+      const sec = Math.floor((Date.now() - bootTime) / 1000);
+      const h = String(Math.floor(sec / 3600)).padStart(2, '0');
+      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      document.getElementById('statUptime').textContent = `${h}:${m}:${s}`;
+    }, 1000);
+
+    /* ==========================================================
+       【7. 啟動排程】
+       - 航班:立即抓取一次,之後每 15 秒更新 (頻率限制保護)
+       - 地震:立即抓取一次,之後每 5 分鐘更新
+       ========================================================== */
+    updateFlights();
+    updateQuakes();
+    setInterval(updateFlights, CONFIG.FLIGHT_REFRESH_MS);
+    setInterval(updateQuakes, CONFIG.QUAKE_REFRESH_MS);
+
+    console.info(
+      '%c[太平洋浮標] GOD-EYE OSINT SYSTEM ONLINE',
+      'color:#10b981; font-weight:bold; font-size:14px; text-shadow:0 0 6px #10b981;'
+    );
+  </script>
+</body>
+</html>
