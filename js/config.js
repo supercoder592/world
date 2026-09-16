@@ -36,8 +36,23 @@ CONAN.config = {
     snapshotRefreshMs: 2000, // 快照影像重整間隔
   },
 
+  // 交通部 TDX（省道 / 縣市 CCTV）。無金鑰時以匿名模式呼叫（每日次數有限）。
+  tdx: {
+    tokenUrl: 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token',
+    highwayCctvUrl: 'https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Highway?%24format=JSON',
+    cityCctvUrl: (city) => `https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/City/${city}?%24format=JSON`,
+  },
+
+  // 中央氣象署開放資料：海象監測浮標（O-B0075-001，需免費授權碼）
+  cwa: {
+    buoyUrl: (key) => `https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-B0075-001?Authorization=${encodeURIComponent(key)}&format=JSON`,
+    refreshMs: 10 * 60 * 1000, // 浮標每小時觀測數筆，10 分鐘重抓一次即可
+  },
+
   storageKeys: {
     aisKey: 'conan.aisKey',
     customCams: 'conan.customCams',
+    tdxCreds: 'conan.tdxCreds',
+    cwaKey: 'conan.cwaKey',
   },
 };

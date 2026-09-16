@@ -1,8 +1,9 @@
-/* 📷 公開監視器圖層 — 高速公路局開放資料 CCTV（免金鑰）＋ 使用者自訂監視器 */
+/* 📷 公開監視器圖層 — 國道（高公局開放資料）＋ 省道/縣市（TDX）＋ 使用者自訂 */
 (function () {
   const cfg = CONAN.config.cctv;
   let layer = null;
   let camCount = 0;
+  const seenIds = new Set(); // 跨來源去重
   let activeSnapshotTimer = null;
   let activeHls = null;
 
@@ -81,6 +82,10 @@
   }
 
   function addCamera(cam) {
+    if (cam.id) {
+      if (seenIds.has(cam.id)) return null;
+      seenIds.add(cam.id);
+    }
     const marker = L.marker([cam.lat, cam.lon], { icon: camIcon(!!cam.custom) });
     marker.bindPopup(() => popupHtml(cam), { maxWidth: 340 });
     marker.on('popupopen', (e) => onPopupOpen(cam, e.popup.getElement()));
@@ -118,6 +123,26 @@
     return out;
   }
 
+  /** 匯入 MOTC 標準格式（國道開放資料與 TDX 皆同）的 CCTV 清單，回傳成功加入的數量 */
+  function addMotcItems(items, prefix, fallbackRoad) {
+    let added = 0;
+    for (const it of items) {
+      const lat = parseFloat(it.PositionLat), lon = parseFloat(it.PositionLon);
+      const url = it.VideoStreamURL || it.VideoImageURL || it.VideoURL || it.ImageURL;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || !url) continue;
+      const dir = { N: '北向', S: '南向', E: '東向', W: '西向' }[it.RoadDirection] || it.RoadDirection || '';
+      const name = `${it.RoadName || it.SurveillanceDescription || fallbackRoad} ${it.LocationMile || ''} ${dir}`.trim();
+      if (addCamera({
+        id: `${prefix}-${it.CCTVID || `${lat},${lon}`}`,
+        name,
+        desc: it.CCTVID || '',
+        lat, lon,
+        url,
+      })) added++;
+    }
+    return added;
+  }
+
   async function loadFreewayCctv() {
     const statusEl = document.getElementById('cctv-status');
     for (const url of cfg.sources) {
@@ -131,20 +156,7 @@
         } else {
           items = parseXml(await res.text());
         }
-        let added = 0;
-        for (const it of items) {
-          const lat = parseFloat(it.PositionLat), lon = parseFloat(it.PositionLon);
-          if (!Number.isFinite(lat) || !Number.isFinite(lon) || !it.VideoStreamURL) continue;
-          const dir = { N: '北向', S: '南向', E: '東向', W: '西向' }[it.RoadDirection] || it.RoadDirection || '';
-          addCamera({
-            id: `fw-${it.CCTVID}`,
-            name: `${it.RoadName || '國道'} ${it.LocationMile || ''} ${dir}`.trim(),
-            desc: it.CCTVID,
-            lat, lon,
-            url: it.VideoStreamURL,
-          });
-          added++;
-        }
+        const added = addMotcItems(items, 'fw', '國道');
         if (added > 0) {
           statusEl.textContent = `已載入 ${added} 支`;
           return;
@@ -156,6 +168,36 @@
     }
     statusEl.textContent = '無法載入（來源或 CORS 限制）';
     CONAN.ui.setStatus('cameras', camCount > 0 ? 'ok' : 'warn', camCount);
+  }
+
+  /* ---------- TDX：省道 / 縣市 CCTV ---------- */
+  function extractTdxItems(data) {
+    if (Array.isArray(data)) return data;
+    return data.CCTVs || data.cctvs || [];
+  }
+
+  async function loadThb() {
+    const statusEl = document.getElementById('thb-status');
+    statusEl.textContent = '載入中…';
+    try {
+      const data = await CONAN.tdx.fetchJson(CONAN.config.tdx.highwayCctvUrl);
+      const added = addMotcItems(extractTdxItems(data), 'thb', '省道');
+      statusEl.textContent = added > 0 ? `已載入 ${added} 支` : '來源無資料';
+    } catch (e) {
+      statusEl.textContent = e.message || '載入失敗';
+    }
+  }
+
+  async function loadCity(city, label) {
+    const statusEl = document.getElementById('city-status');
+    statusEl.textContent = `${label} 載入中…`;
+    try {
+      const data = await CONAN.tdx.fetchJson(CONAN.config.tdx.cityCctvUrl(city));
+      const added = addMotcItems(extractTdxItems(data), `city-${city}`, label);
+      statusEl.textContent = added > 0 ? `${label}：已載入 ${added} 支` : `${label}：無資料（該縣市未提供）`;
+    } catch (e) {
+      statusEl.textContent = `${label}：${e.message || '載入失敗'}`;
+    }
   }
 
   /* ---------- 使用者自訂監視器 ---------- */
@@ -209,11 +251,21 @@
 
   CONAN.cameras = {
     init(map) {
-      layer = L.layerGroup().addTo(map);
+      // 監視器可達數千支，優先使用聚合圖層
+      layer = (L.markerClusterGroup
+        ? L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 46, disableClusteringAtZoom: 14 })
+        : L.layerGroup()
+      ).addTo(map);
       customList = loadCustom();
       CONAN.ui.setStatus('cameras', camCount > 0 ? 'ok' : 'warn', camCount);
       loadFreewayCctv();
       initAddForm(map);
+
+      document.getElementById('thb-load').addEventListener('click', loadThb);
+      document.getElementById('city-load').addEventListener('click', () => {
+        const sel = document.getElementById('city-select');
+        loadCity(sel.value, sel.options[sel.selectedIndex].textContent);
+      });
     },
     setVisible(on, map) {
       if (on) layer.addTo(map); else { map.removeLayer(layer); stopViewers(); }

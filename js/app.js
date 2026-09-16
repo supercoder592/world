@@ -43,9 +43,11 @@
   L.control.scale({ metric: true, imperial: false }).addTo(map);
 
   /* ---------- 模組啟動 ---------- */
+  CONAN.tdx.initForm();
   CONAN.aircraft.init(map);
   CONAN.ships.init(map);
   CONAN.cameras.init(map);
+  CONAN.buoys.init(map);
 
   /* ---------- 圖層開關 ---------- */
   document.getElementById('layer-aircraft').addEventListener('change', (e) => {
@@ -56,6 +58,9 @@
   });
   document.getElementById('layer-cameras').addEventListener('change', (e) => {
     CONAN.cameras.setVisible(e.target.checked, map);
+  });
+  document.getElementById('layer-buoys').addEventListener('change', (e) => {
+    CONAN.buoys.setVisible(e.target.checked, map);
   });
   document.getElementById('opt-trails').addEventListener('change', (e) => {
     CONAN.aircraft.setTrails(e.target.checked, map);

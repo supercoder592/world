@@ -8,6 +8,8 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -29,6 +31,9 @@
       <span class="status-chip" id="status-cameras" title="公開監視器">
         <span class="dot"></span>📷 監視器 <b id="count-cameras">–</b>
       </span>
+      <span class="status-chip" id="status-buoys" title="氣象署海象浮標">
+        <span class="dot"></span>🌊 浮標 <b id="count-buoys">–</b>
+      </span>
       <span class="clock" id="clock">--:--:--</span>
     </div>
     <button id="sidebar-toggle" title="開關事件簿">☰ 事件簿</button>
@@ -41,6 +46,7 @@
         <label class="toggle"><input type="checkbox" id="layer-aircraft" checked> ✈️ 飛機（ADS-B）</label>
         <label class="toggle"><input type="checkbox" id="layer-ships" checked> 🚢 船舶（AIS）</label>
         <label class="toggle"><input type="checkbox" id="layer-cameras" checked> 📷 公開監視器</label>
+        <label class="toggle"><input type="checkbox" id="layer-buoys" checked> 🌊 海象浮標（氣象署）</label>
         <label class="toggle"><input type="checkbox" id="opt-trails" checked> 〰️ 顯示航跡</label>
         <label class="toggle"><input type="checkbox" id="opt-dark" checked> 🌙 夜間地圖</label>
       </section>
@@ -68,10 +74,51 @@
       <section class="panel">
         <h2>📷 公開監視器</h2>
         <p class="hint">
-          自動載入高速公路局開放資料 CCTV（免金鑰）。也可自行新增任何公開影像網址
-          （支援 JPG 快照 / MJPEG / HLS(.m3u8) / 網頁連結）。
+          自動載入高速公路局開放資料國道 CCTV（免金鑰）。省道與縣市 CCTV 走
+          <a href="https://tdx.transportdata.tw/" target="_blank" rel="noopener">交通部 TDX</a>
+          — 未填金鑰時以匿名模式試用（每日次數有限），填入免費金鑰可解除限制。
         </p>
         <div class="kv"><span>國道 CCTV</span><b id="cctv-status">載入中…</b></div>
+        <div class="kv"><span>省道 CCTV</span><b id="thb-status">未載入</b></div>
+        <button id="thb-load" class="wide">載入省道 CCTV</button>
+        <div class="row">
+          <select id="city-select">
+            <option value="Taipei">臺北市</option>
+            <option value="NewTaipei">新北市</option>
+            <option value="Taoyuan">桃園市</option>
+            <option value="Taichung">臺中市</option>
+            <option value="Tainan">臺南市</option>
+            <option value="Kaohsiung">高雄市</option>
+            <option value="Keelung">基隆市</option>
+            <option value="Hsinchu">新竹市</option>
+            <option value="HsinchuCounty">新竹縣</option>
+            <option value="MiaoliCounty">苗栗縣</option>
+            <option value="ChanghuaCounty">彰化縣</option>
+            <option value="NantouCounty">南投縣</option>
+            <option value="YunlinCounty">雲林縣</option>
+            <option value="Chiayi">嘉義市</option>
+            <option value="ChiayiCounty">嘉義縣</option>
+            <option value="PingtungCounty">屏東縣</option>
+            <option value="YilanCounty">宜蘭縣</option>
+            <option value="HualienCounty">花蓮縣</option>
+            <option value="TaitungCounty">臺東縣</option>
+            <option value="PenghuCounty">澎湖縣</option>
+            <option value="KinmenCounty">金門縣</option>
+            <option value="LienchiangCounty">連江縣</option>
+          </select>
+          <button id="city-load">載入</button>
+        </div>
+        <div class="kv"><span>縣市 CCTV</span><b id="city-status">未載入</b></div>
+        <details>
+          <summary>🔑 TDX 金鑰（選填）</summary>
+          <div class="form">
+            <p class="hint">到 <a href="https://tdx.transportdata.tw/register" target="_blank" rel="noopener">TDX 免費註冊</a>
+              後建立 API 金鑰，填入 Client ID / Secret。金鑰只存在你的瀏覽器（localStorage）。</p>
+            <input type="text" id="tdx-id" placeholder="Client ID">
+            <input type="password" id="tdx-secret" placeholder="Client Secret">
+            <button id="tdx-save">儲存金鑰</button>
+          </div>
+        </details>
         <details>
           <summary>➕ 新增自訂監視器</summary>
           <div class="form">
@@ -84,6 +131,21 @@
             <button id="cam-add">加入地圖</button>
           </div>
         </details>
+      </section>
+
+      <section class="panel">
+        <h2>🌊 氣象署海象浮標</h2>
+        <p class="hint">
+          中央氣象署開放資料「海象監測浮標」— 浪高、週期、海溫、風速即時觀測。
+          到 <a href="https://opendata.cwa.gov.tw/" target="_blank" rel="noopener">CWA 氣象開放資料平臺</a>
+          免費註冊取得授權碼（API Key），金鑰只存在你的瀏覽器（localStorage）。
+        </p>
+        <div class="row">
+          <input type="password" id="cwa-key" placeholder="貼上 CWA 授權碼 (CWA-…)">
+          <button id="cwa-connect">載入</button>
+        </div>
+        <div class="kv"><span>狀態</span><b id="cwa-status">未設定金鑰</b></div>
+        <div class="kv"><span>更新於</span><b id="cwa-updated">–</b></div>
       </section>
 
       <section class="panel">
@@ -112,11 +174,14 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/tdx.js"></script>
   <script src="js/aircraft.js"></script>
   <script src="js/ships.js"></script>
   <script src="js/cameras.js"></script>
+  <script src="js/buoys.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
