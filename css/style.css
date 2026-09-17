@@ -53,12 +53,12 @@ html, body {
 
 .clock { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
 
-#sidebar-toggle {
+#sidebar-toggle, #home-taiwan {
   background: var(--panel); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px;
   padding: 6px 12px; cursor: pointer; font-size: 14px;
 }
-#sidebar-toggle:hover { border-color: var(--accent); }
+#sidebar-toggle:hover, #home-taiwan:hover { border-color: var(--accent); }
 
 /* ---------- 版面 ---------- */
 #main { display: flex; height: calc(100% - 58px); }

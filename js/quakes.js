@@ -1,4 +1,4 @@
-/* 🌏 地震圖層 — USGS 全球即時地震（免金鑰），過濾台灣周邊 */
+/* 🌏 地震圖層 — USGS 全球即時地震（免金鑰），全球版：不過濾地區 */
 (function () {
   const cfg = CONAN.config.quakes;
   let map = null;
@@ -11,11 +11,6 @@
     if (m >= 5) return '#ff8c42';
     if (m >= 4) return '#ffd166';
     return '#9aa5b1';
-  }
-
-  function inRegion(lat, lon) {
-    const b = CONAN.config.bounds, p = cfg.pad;
-    return lat >= b.south - p && lat <= b.north + p && lon >= b.west - p && lon <= b.east + p;
   }
 
   function popupHtml(f, depth) {
@@ -44,7 +39,7 @@
       count = 0;
       for (const f of data.features || []) {
         const [lon, lat, depth] = f.geometry.coordinates;
-        if (!inRegion(lat, lon)) continue;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
         const mag = f.properties.mag || 0;
         const size = Math.max(10, mag * 5.5);
         const color = magColor(mag);

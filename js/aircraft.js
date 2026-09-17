@@ -1,4 +1,6 @@
-/* ✈️ 飛機圖層 — 公開 ADS-B 匯流（adsb.lol / adsb.fi / airplanes.live / OpenSky），免金鑰 */
+/* ✈️ 飛機圖層 — 公開 ADS-B 匯流（adsb.lol / adsb.fi / airplanes.live / OpenSky），免金鑰。
+   全球版：查詢中心與半徑跟著地圖目前視野走（像 Flightradar24 那樣），而不是
+   鎖定台灣——把地球轉到任何地方、放大任何城市，都會查詢那裡的即時飛機。 */
 (function () {
   const cfg = CONAN.config.adsb;
   const planes = new Map(); // hex -> { marker, el, trail, lastSeen, data }
@@ -6,6 +8,9 @@
   let sourceIdx = 0;
   let visible = true;
   let showTrails = true;
+  let queryCenter = CONAN.config.center; // [lat, lon]，隨地圖視野更新
+  let queryRadiusNm = cfg.maxRadiusNm;
+  let moveTimer = null;
 
   function altColor(alt) {
     if (alt == null || alt === 'ground') return '#9aa5b1';
@@ -57,18 +62,30 @@
     }));
   }
 
+  /** 由地圖目前視野換算查詢中心與半徑（海里），夾在 [minRadiusNm, maxRadiusNm] 之間 */
+  function updateQueryFromView() {
+    const c = map.getCenter();
+    const b = map.getBounds();
+    const cornerNm = CONAN.geo.distanceNm(c.lat, c.lng, b.getNorth(), b.getEast());
+    queryCenter = [c.lat, c.lng];
+    queryRadiusNm = Math.min(cfg.maxRadiusNm, Math.max(cfg.minRadiusNm, cornerNm));
+    const rangeEl = document.getElementById('adsb-range');
+    if (rangeEl) rangeEl.textContent = `${Math.round(queryRadiusNm)} 海里內（跟隨地圖視野）`;
+  }
+
   async function poll() {
-    const { center } = CONAN.config;
+    const [lat, lon] = queryCenter;
+    const radius = queryRadiusNm;
     let lastErr = null;
     for (let i = 0; i < cfg.sources.length; i++) {
       const idx = (sourceIdx + i) % cfg.sources.length;
       const src = cfg.sources[idx];
       try {
-        const res = await fetch(src.url(center[0], center[1], cfg.radiusNm), { signal: CONAN.timeoutSignal(8000) });
+        const res = await fetch(src.url(lat, lon, Math.round(radius)), { signal: CONAN.timeoutSignal(8000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         sourceIdx = idx; // 記住成功的來源，下次優先
-        update(src.format === 'opensky' ? parseOpenSky(data) : (data.ac || data.aircraft || []));
+        update(src.format === 'opensky' ? parseOpenSky(data) : (data.ac || data.aircraft || []), lat, lon, radius);
         CONAN.ui.setStatus('aircraft', 'ok', planes.size);
         document.getElementById('adsb-source').textContent = src.name;
         document.getElementById('adsb-updated').textContent = new Date().toLocaleTimeString('zh-TW');
@@ -81,7 +98,7 @@
     document.getElementById('adsb-source').textContent = `連線失敗（${lastErr && lastErr.name === 'TimeoutError' ? '逾時' : '網路/CORS'}）`;
   }
 
-  function update(list) {
+  function update(list, queryLat, queryLon, radiusNm) {
     const now = Date.now();
     for (const ac of list) {
       if (!Number.isFinite(ac.lat) || !Number.isFinite(ac.lon)) continue;
@@ -109,9 +126,13 @@
         p.data = ac;
       }
     }
-    // 移除過期
+    // 移除過期，或（查詢範圍跟著地圖視野縮小/搬移後）已經落在查詢圈外的殘留標記
+    const margin = radiusNm * 1.3;
     for (const [hex, p] of planes) {
-      if (now - p.lastSeen > cfg.staleMs) {
+      const tooOld = now - p.lastSeen > cfg.staleMs;
+      const outOfRange = Number.isFinite(queryLat)
+        && CONAN.geo.distanceNm(queryLat, queryLon, p.data.lat, p.data.lon) > margin;
+      if (tooOld || outOfRange) {
         if (p.marker) p.marker.remove();
         planes.delete(hex);
       }
@@ -148,8 +169,17 @@
         source: 'plane-trails',
         paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.5 },
       });
+      updateQueryFromView();
       poll();
       setInterval(poll, cfg.intervalMs);
+      // 使用者拖曳/縮放地圖後，等手停下來 900ms 再重新查詢（避免邊拖邊狂打 API）
+      map.on('moveend', () => {
+        clearTimeout(moveTimer);
+        moveTimer = setTimeout(() => {
+          updateQueryFromView();
+          poll();
+        }, 900);
+      });
     },
     setVisible(on) {
       visible = on;

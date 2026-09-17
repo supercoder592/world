@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>太平洋浮標「柯南」</title>
-  <meta name="description" content="太平洋浮標「柯南」— 台灣地區公開監視器、飛機（ADS-B）、船舶（AIS）即時觀測站。真相永遠只有一個!">
+  <meta name="description" content="太平洋浮標「柯南」— 全球即時觀測站：飛機（ADS-B）、船舶（AIS）、地震、衛星全球即時追蹤，加上台灣地區公開監視器。真相永遠只有一個!">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css"
         onerror="this.onerror=null;this.href='https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css'">
@@ -40,6 +40,7 @@
       </span>
       <span class="clock" id="clock">--:--:--</span>
     </div>
+    <button id="home-taiwan" title="回到台灣視野">🏠 台灣</button>
     <button id="sidebar-toggle" title="開關事件簿">☰ 事件簿</button>
   </header>
 
@@ -58,18 +59,22 @@
       </section>
 
       <section class="panel">
-        <h2>✈️ 飛機（ADS-B）</h2>
-        <p class="hint">免金鑰，自動輪詢公開 ADS-B 匯流：adsb.lol → adsb.fi → airplanes.live → OpenSky（自動備援）。</p>
+        <h2>✈️ 飛機（ADS-B）— 全球</h2>
+        <p class="hint">
+          免金鑰，自動輪詢公開 ADS-B 匯流：adsb.lol → adsb.fi → airplanes.live → OpenSky（自動備援）。
+          查詢範圍跟著地圖視野走——把地球轉到任何地方都能看到當地即時航班。
+        </p>
         <div class="kv"><span>資料源</span><b id="adsb-source">連線中…</b></div>
+        <div class="kv"><span>查詢範圍</span><b id="adsb-range">–</b></div>
         <div class="kv"><span>更新於</span><b id="adsb-updated">–</b></div>
       </section>
 
       <details class="panel" id="ais-panel">
-        <summary>🚢 船舶（AIS）— 需免費金鑰</summary>
+        <summary>🚢 船舶（AIS）— 全球，需免費金鑰</summary>
         <p class="hint">
           使用 <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a> 免費 API 金鑰
-          （註冊即可取得），即時串流台灣周邊海域 AIS 船位。金鑰只存在你的瀏覽器（localStorage）。
-          填入金鑰後，船舶圖層才會出現。
+          （註冊即可取得），即時串流<b>全球</b>海域 AIS 船位（船隻量大，以效能上限保護瀏覽器）。
+          金鑰只存在你的瀏覽器（localStorage）。填入金鑰後，船舶圖層才會出現。
         </p>
         <div class="row">
           <input type="password" id="ais-key" placeholder="貼上 AISStream API Key">
@@ -158,11 +163,11 @@
       </details>
 
       <section class="panel">
-        <h2>🌏 地震＆🛰️ 衛星</h2>
+        <h2>🌏 地震＆🛰️ 衛星 — 全球</h2>
         <p class="hint">
-          皆免金鑰：地震取 USGS 全球即時目錄（過濾台灣周邊、近 7 天）；
-          衛星取 CelesTrak 軌道根數（最亮衛星＋太空站），在你的瀏覽器內以
-          SGP4 推算，每 5 秒更新一次頭頂位置。
+          皆免金鑰：地震取 USGS 全球即時目錄（近 7 天，不分地區）；
+          衛星取 CelesTrak 軌道根數（最亮衛星＋太空站，全球星下點），
+          在你的瀏覽器內以 SGP4 推算，每 5 秒更新一次位置。
         </p>
         <div class="kv"><span>地震</span><b id="quake-status">載入中…</b></div>
         <div class="kv"><span>衛星</span><b id="sat-status">載入中…</b></div>

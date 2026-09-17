@@ -1,15 +1,11 @@
-/* 🛰️ 衛星圖層 — CelesTrak TLE（免金鑰）＋ satellite.js 瀏覽器端 SGP4 軌道推算 */
+/* 🛰️ 衛星圖層 — CelesTrak TLE（免金鑰）＋ satellite.js 瀏覽器端 SGP4 軌道推算。
+   全球版：不過濾地區，衛星飛到哪就畫在哪。 */
 (function () {
   const cfg = CONAN.config.sats;
   const satrecs = []; // { name, satrec }
   const markers = new Map(); // name -> { marker, el, info }
   let map = null;
   let visible = true;
-
-  function inRegion(lat, lon) {
-    const b = CONAN.config.bounds, p = cfg.pad;
-    return lat >= b.south - p && lat <= b.north + p && lon >= b.west - p && lon <= b.east + p;
-  }
 
   function setStatus(text, cls) {
     document.getElementById('sat-status').textContent = text;
@@ -66,7 +62,7 @@
       } catch { continue; }
       const lat = satellite.degreesLat(gd.latitude);
       const lon = satellite.degreesLong(gd.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon) || !inRegion(lat, lon)) continue;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
       seen.add(name);
       const info = { name, lat, lon, altKm: gd.height, time: now.toLocaleTimeString('zh-TW') };
       let m = markers.get(name);

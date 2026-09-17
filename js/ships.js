@@ -35,7 +35,7 @@
   function connect(key) {
     disconnect();
     currentKey = key;
-    const b = CONAN.config.bounds;
+    const b = cfg.globalBounds; // 全球版：訂閱整個地球，量很大，靠 maxShips 上限保護效能
     setAisStatus('連線中…', 'warn');
     try {
       ws = new WebSocket(cfg.wsUrl);
