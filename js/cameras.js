@@ -1,11 +1,17 @@
-/* 📷 公開監視器圖層 — 國道（高公局開放資料）＋ 省道/縣市（TDX）＋ 使用者自訂 */
+/* 📷 公開監視器圖層 — 國道（高公局開放資料）＋ 省道/縣市（TDX）＋ 使用者自訂
+   以 MapLibre GeoJSON 聚合呈現；開放資料偶有壞座標（0,0 或缺值），一律過濾在台灣範圍外的點 */
 (function () {
   const cfg = CONAN.config.cctv;
-  let layer = null;
-  let camCount = 0;
-  const seenIds = new Set(); // 跨來源去重
+  const cams = new Map(); // id -> cam { id, name, desc, lat, lon, url, custom }
+  let map = null;
+  let customList = [];
   let activeSnapshotTimer = null;
   let activeHls = null;
+
+  function inBounds(lat, lon) {
+    const b = CONAN.config.bounds, p = 1.5;
+    return lat >= b.south - p && lat <= b.north + p && lon >= b.west - p && lon <= b.east + p;
+  }
 
   function detectType(url) {
     const u = (url || '').toLowerCase();
@@ -15,15 +21,6 @@
     if (u.includes('.jpg') || u.includes('.jpeg') || u.includes('snapshot')) return 'img';
     if (u.startsWith('http')) return 'tryimg';                   // 未知網址：先試著當影像嵌，失敗再退回連結
     return 'link';
-  }
-
-  function camIcon(custom) {
-    return L.divIcon({
-      className: '',
-      html: `<div class="cam-icon${custom ? ' custom' : ''}">📷</div>`,
-      iconSize: [22, 22],
-      iconAnchor: [11, 11],
-    });
   }
 
   function stopViewers() {
@@ -56,41 +53,41 @@
     </div>`;
   }
 
-  function onPopupOpen(cam, popupEl) {
+  function wirePopup(cam, popupEl) {
     stopViewers();
     const type = detectType(cam.url);
     const el = popupEl.querySelector('#cam-live');
-    if (!el) return;
-    const fallback = popupEl.querySelector('#cam-fallback');
-    const showFallback = () => {
-      stopViewers();
-      el.hidden = true;
-      if (fallback) fallback.hidden = false;
-    };
-    el.onerror = showFallback;
-
-    if (type === 'img') {
-      const refresh = () => {
-        // 加上時間戳避免快取，取得最新快照
-        const sep = cam.url.includes('?') ? '&' : '?';
-        el.src = `${cam.url}${sep}t=${Date.now()}`;
+    if (el) {
+      const fallback = popupEl.querySelector('#cam-fallback');
+      const showFallback = () => {
+        stopViewers();
+        el.hidden = true;
+        if (fallback) fallback.hidden = false;
       };
-      refresh();
-      activeSnapshotTimer = setInterval(refresh, cfg.snapshotRefreshMs);
-    } else if (type === 'mjpeg' || type === 'tryimg') {
-      // MJPEG 是連續串流，設定一次 src 讓它自己播，不需輪詢重載
-      el.src = cam.url;
-    } else if (type === 'hls') {
-      if (window.Hls && Hls.isSupported()) {
-        activeHls = new Hls({ maxBufferLength: 10 });
-        activeHls.loadSource(cam.url);
-        activeHls.attachMedia(el);
-        activeHls.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal) showFallback(); });
-      } else if (el.canPlayType('application/vnd.apple.mpegurl')) {
+      el.onerror = showFallback;
+
+      if (type === 'img') {
+        const refresh = () => {
+          // 加上時間戳避免快取，取得最新快照
+          const sep = cam.url.includes('?') ? '&' : '?';
+          el.src = `${cam.url}${sep}t=${Date.now()}`;
+        };
+        refresh();
+        activeSnapshotTimer = setInterval(refresh, cfg.snapshotRefreshMs);
+      } else if (type === 'mjpeg' || type === 'tryimg') {
+        // MJPEG 是連續串流，設定一次 src 讓它自己播，不需輪詢重載
         el.src = cam.url;
-        el.onerror = showFallback;
-      } else {
-        showFallback();
+      } else if (type === 'hls') {
+        if (window.Hls && Hls.isSupported()) {
+          activeHls = new Hls({ maxBufferLength: 10 });
+          activeHls.loadSource(cam.url);
+          activeHls.attachMedia(el);
+          activeHls.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal) showFallback(); });
+        } else if (el.canPlayType('application/vnd.apple.mpegurl')) {
+          el.src = cam.url;
+        } else {
+          showFallback();
+        }
       }
     }
     const del = popupEl.querySelector('[data-del]');
@@ -98,24 +95,36 @@
       del.addEventListener('click', (e) => {
         e.preventDefault();
         removeCustom(cam.id);
+        if (CONAN.gl.activePopup) CONAN.gl.activePopup.remove();
       });
     }
   }
 
+  /* ---------- GeoJSON 資料源 ---------- */
+  function featureCollection() {
+    return {
+      type: 'FeatureCollection',
+      features: [...cams.values()].map((c) => ({
+        type: 'Feature',
+        properties: { id: c.id, custom: c.custom ? 1 : 0 },
+        geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
+      })),
+    };
+  }
+
+  function refresh() {
+    const src = map.getSource('cams');
+    if (src) src.setData(featureCollection());
+    CONAN.ui.setStatus('cameras', cams.size > 0 ? 'ok' : 'warn', cams.size);
+  }
+
+  /** 加入一支監視器（不重整資料源；批次加完請自行呼叫 refresh）。回傳是否成功。 */
   function addCamera(cam) {
-    if (cam.id) {
-      if (seenIds.has(cam.id)) return null;
-      seenIds.add(cam.id);
-    }
-    const marker = L.marker([cam.lat, cam.lon], { icon: camIcon(!!cam.custom) });
-    marker.bindPopup(() => popupHtml(cam), { maxWidth: 340 });
-    marker.on('popupopen', (e) => onPopupOpen(cam, e.popup.getElement()));
-    marker.on('popupclose', stopViewers);
-    marker.addTo(layer);
-    cam.marker = marker;
-    camCount++;
-    CONAN.ui.setStatus('cameras', 'ok', camCount);
-    return marker;
+    if (!Number.isFinite(cam.lat) || !Number.isFinite(cam.lon)) return false;
+    if (!inBounds(cam.lat, cam.lon)) return false; // 過濾開放資料的壞座標（避免飄到非洲）
+    if (cams.has(cam.id)) return false;
+    cams.set(cam.id, cam);
+    return true;
   }
 
   /* ---------- 高速公路局開放資料 ---------- */
@@ -150,7 +159,7 @@
     for (const it of items) {
       const lat = parseFloat(it.PositionLat), lon = parseFloat(it.PositionLon);
       const url = it.VideoStreamURL || it.VideoImageURL || it.VideoURL || it.ImageURL;
-      if (!Number.isFinite(lat) || !Number.isFinite(lon) || !url) continue;
+      if (!url) continue;
       const dir = { N: '北向', S: '南向', E: '東向', W: '西向' }[it.RoadDirection] || it.RoadDirection || '';
       const name = `${it.RoadName || it.SurveillanceDescription || fallbackRoad} ${it.LocationMile || ''} ${dir}`.trim();
       if (addCamera({
@@ -161,7 +170,13 @@
         url,
       })) added++;
     }
+    refresh();
     return added;
+  }
+
+  function extractTdxItems(data) {
+    if (Array.isArray(data)) return data;
+    return data.CCTVs || data.cctvs || [];
   }
 
   async function loadFreewayCctv() {
@@ -195,19 +210,10 @@
         statusEl.textContent = `已載入 ${added} 支（TDX 備援）`;
         return;
       }
+      statusEl.textContent = '無法載入（來源或 CORS 限制）';
     } catch (e) {
       statusEl.textContent = `無法載入：${e.message || 'CORS/網路限制'}`;
-      CONAN.ui.setStatus('cameras', camCount > 0 ? 'ok' : 'warn', camCount);
-      return;
     }
-    statusEl.textContent = '無法載入（來源或 CORS 限制）';
-    CONAN.ui.setStatus('cameras', camCount > 0 ? 'ok' : 'warn', camCount);
-  }
-
-  /* ---------- TDX：省道 / 縣市 CCTV ---------- */
-  function extractTdxItems(data) {
-    if (Array.isArray(data)) return data;
-    return data.CCTVs || data.cctvs || [];
   }
 
   async function loadThb() {
@@ -245,8 +251,6 @@
     return list;
   }
 
-  let customList = [];
-
   function saveCustom() {
     CONAN.store.set(
       CONAN.config.storageKeys.customCams,
@@ -257,14 +261,13 @@
   function removeCustom(id) {
     const idx = customList.findIndex((c) => c.id === id);
     if (idx < 0) return;
-    const [cam] = customList.splice(idx, 1);
-    if (cam.marker) layer.removeLayer(cam.marker);
-    camCount--;
+    customList.splice(idx, 1);
+    cams.delete(id);
     saveCustom();
-    CONAN.ui.setStatus('cameras', 'ok', camCount);
+    refresh();
   }
 
-  function initAddForm(map) {
+  function initAddForm() {
     document.getElementById('cam-add').addEventListener('click', () => {
       const name = document.getElementById('cam-name').value.trim();
       const lat = parseFloat(document.getElementById('cam-lat').value);
@@ -275,25 +278,93 @@
         return;
       }
       const cam = { id: `custom-${Date.now()}`, name, lat, lon, url, custom: true };
+      if (!addCamera(cam)) {
+        alert('座標超出台灣周邊觀測範圍。');
+        return;
+      }
       customList.push(cam);
-      addCamera(cam);
       saveCustom();
-      map.setView([lat, lon], 13);
+      refresh();
+      map.easeTo({ center: [lon, lat], zoom: 13 });
       for (const id of ['cam-name', 'cam-lat', 'cam-lon', 'cam-url']) document.getElementById(id).value = '';
     });
   }
 
   CONAN.cameras = {
-    init(map) {
-      // 監視器可達數千支，優先使用聚合圖層
-      layer = (L.markerClusterGroup
-        ? L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 46, disableClusteringAtZoom: 14 })
-        : L.layerGroup()
-      ).addTo(map);
+    init(m) {
+      map = m;
+      map.addSource('cams', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 13,
+        clusterRadius: 46,
+      });
+      map.addLayer({
+        id: 'cam-clusters',
+        type: 'circle',
+        source: 'cams',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': '#4ea1ff',
+          'circle-opacity': 0.8,
+          'circle-radius': ['step', ['get', 'point_count'], 13, 50, 17, 300, 22],
+          'circle-stroke-color': '#0d1117',
+          'circle-stroke-width': 1.5,
+        },
+      });
+      map.addLayer({
+        id: 'cam-cluster-count',
+        type: 'symbol',
+        source: 'cams',
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-size': 12,
+          'text-font': ['Open Sans Semibold'],
+        },
+        paint: { 'text-color': '#08111e' },
+      });
+      map.addLayer({
+        id: 'cam-points',
+        type: 'circle',
+        source: 'cams',
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': '#172533',
+          'circle-radius': 7,
+          'circle-stroke-color': ['case', ['==', ['get', 'custom'], 1], '#ffd166', '#4ea1ff'],
+          'circle-stroke-width': 1.5,
+        },
+      });
+
+      map.on('click', 'cam-points', (e) => {
+        const id = e.features[0].properties.id;
+        const cam = cams.get(id);
+        if (!cam) return;
+        CONAN.gl.openPopup(map, cam.lat, cam.lon, popupHtml(cam), {
+          onOpen: (el) => wirePopup(cam, el),
+          onClose: stopViewers,
+        });
+      });
+      map.on('click', 'cam-clusters', (e) => {
+        const f = e.features[0];
+        Promise.resolve(map.getSource('cams').getClusterExpansionZoom(f.properties.cluster_id))
+          .then((z) => map.easeTo({
+            center: f.geometry.coordinates,
+            zoom: Number.isFinite(z) ? z : map.getZoom() + 2,
+          }))
+          .catch(() => { /* noop */ });
+      });
+      for (const layerId of ['cam-points', 'cam-clusters']) {
+        map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
+      }
+
       customList = loadCustom();
-      CONAN.ui.setStatus('cameras', camCount > 0 ? 'ok' : 'warn', camCount);
+      refresh();
       loadFreewayCctv();
-      initAddForm(map);
+      initAddForm();
 
       document.getElementById('thb-load').addEventListener('click', loadThb);
       document.getElementById('city-load').addEventListener('click', () => {
@@ -301,8 +372,12 @@
         loadCity(sel.value, sel.options[sel.selectedIndex].textContent);
       });
     },
-    setVisible(on, map) {
-      if (on) layer.addTo(map); else { map.removeLayer(layer); stopViewers(); }
+    setVisible(on) {
+      const v = on ? 'visible' : 'none';
+      for (const layerId of ['cam-clusters', 'cam-cluster-count', 'cam-points']) {
+        map.setLayoutProperty(layerId, 'visibility', v);
+      }
+      if (!on) stopViewers();
     },
   };
 })();

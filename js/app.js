@@ -1,4 +1,4 @@
-/* 🔍 太平洋浮標「柯南」 — 主程式 */
+/* 🔍 太平洋浮標「柯南」 — 主程式（MapLibre GL・球體地球） */
 (function () {
   const cfg = CONAN.config;
 
@@ -23,8 +23,8 @@
   });
 
   // 地圖套件沒載進來（CDN 被擋）時，給出明確訊息而不是整頁空白
-  if (typeof L === 'undefined') {
-    showDiag('地圖套件（Leaflet CDN）載入失敗，請檢查網路或換個網路環境再試');
+  if (typeof maplibregl === 'undefined') {
+    showDiag('地圖套件（MapLibre CDN）載入失敗，請檢查網路或換個網路環境再試');
     return;
   }
 
@@ -47,50 +47,83 @@
     },
   };
 
-  /* ---------- 地圖 ---------- */
-  const map = L.map('map', {
-    center: cfg.center,
-    zoom: cfg.zoom,
-    zoomControl: true,
-    worldCopyJump: true,
+  /* ---------- 地圖：球體地球（globe 投影），縮小是地球、放大是街道圖 ---------- */
+  const style = {
+    version: 8,
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sources: {
+      'base-dark': {
+        type: 'raster',
+        tiles: ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`),
+        tileSize: 256,
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+      },
+      'base-light': {
+        type: 'raster',
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 貢獻者',
+      },
+    },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#05070c' } },
+      { id: 'base-dark', type: 'raster', source: 'base-dark' },
+      { id: 'base-light', type: 'raster', source: 'base-light', layout: { visibility: 'none' } },
+    ],
+  };
+
+  const map = new maplibregl.Map({
+    container: 'map',
+    style,
+    center: [cfg.center[1], cfg.center[0]], // MapLibre 是 [lon, lat]
+    zoom: 6,
+    minZoom: 1,
+    attributionControl: { compact: true },
   });
-
-  const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19,
+  map.on('style.load', () => {
+    map.setProjection({ type: 'globe' });
   });
-  const lightTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 貢獻者',
-    maxZoom: 19,
-  });
-  darkTiles.addTo(map);
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
+  map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
-  // 觀測範圍框（柯南的搜查範圍）
-  const b = cfg.bounds;
-  L.rectangle([[b.south, b.west], [b.north, b.east]], {
-    color: '#4ea1ff', weight: 1, dashArray: '6 6', fill: false, opacity: 0.5,
-    interactive: false,
-  }).addTo(map);
+  map.on('load', () => {
+    // 觀測範圍框（柯南的搜查範圍）
+    const b = cfg.bounds;
+    map.addSource('obs-box', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [b.west, b.south], [b.east, b.south], [b.east, b.north], [b.west, b.north], [b.west, b.south],
+          ],
+        },
+      },
+    });
+    map.addLayer({
+      id: 'obs-box',
+      type: 'line',
+      source: 'obs-box',
+      paint: { 'line-color': '#4ea1ff', 'line-width': 1, 'line-opacity': 0.5, 'line-dasharray': [3, 3] },
+    });
 
-  L.control.scale({ metric: true, imperial: false }).addTo(map);
-
-  /* ---------- 模組啟動 ---------- */
-  // 個別模組初始化失敗時只影響自己的圖層，不拖垮整個頁面
-  for (const [name, fn] of [
-    ['TDX', () => CONAN.tdx.initForm()],
-    ['飛機', () => CONAN.aircraft.init(map)],
-    ['船舶', () => CONAN.ships.init(map)],
-    ['監視器', () => CONAN.cameras.init(map)],
-    ['浮標', () => CONAN.buoys.init(map)],
-    ['地震', () => CONAN.quakes.init(map)],
-    ['衛星', () => CONAN.sats.init(map)],
-  ]) {
-    try { fn(); } catch (e) {
-      console.error(`[${name}]`, e);
-      showDiag(`${name}圖層初始化失敗：${e.message}`);
+    /* ---------- 模組啟動（個別失敗只影響自己的圖層） ---------- */
+    for (const [name, fn] of [
+      ['TDX', () => CONAN.tdx.initForm()],
+      ['飛機', () => CONAN.aircraft.init(map)],
+      ['船舶', () => CONAN.ships.init(map)],
+      ['監視器', () => CONAN.cameras.init(map)],
+      ['浮標', () => CONAN.buoys.init(map)],
+      ['地震', () => CONAN.quakes.init(map)],
+      ['衛星', () => CONAN.sats.init(map)],
+    ]) {
+      try { fn(); } catch (e) {
+        console.error(`[${name}]`, e);
+        showDiag(`${name}圖層初始化失敗：${e.message}`);
+      }
     }
-  }
+  });
 
   /* ---------- 圖層開關 ---------- */
   document.getElementById('layer-aircraft').addEventListener('change', (e) => {
@@ -115,14 +148,15 @@
     CONAN.aircraft.setTrails(e.target.checked, map);
   });
   document.getElementById('opt-dark').addEventListener('change', (e) => {
-    if (e.target.checked) { map.removeLayer(lightTiles); darkTiles.addTo(map); }
-    else { map.removeLayer(darkTiles); lightTiles.addTo(map); }
+    const dark = e.target.checked;
+    map.setLayoutProperty('base-dark', 'visibility', dark ? 'visible' : 'none');
+    map.setLayoutProperty('base-light', 'visibility', dark ? 'none' : 'visible');
   });
 
   /* ---------- 側欄開關 ---------- */
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('hidden');
-    setTimeout(() => map.invalidateSize(), 60);
+    setTimeout(() => map.resize(), 60);
   });
 
   /* ---------- 時鐘 ---------- */

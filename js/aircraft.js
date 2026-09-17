@@ -1,11 +1,10 @@
-/* ✈️ 飛機圖層 — 公開 ADS-B 匯流（adsb.lol / adsb.fi / airplanes.live），免金鑰 */
+/* ✈️ 飛機圖層 — 公開 ADS-B 匯流（adsb.lol / adsb.fi / airplanes.live / OpenSky），免金鑰 */
 (function () {
   const cfg = CONAN.config.adsb;
-  const planes = new Map(); // hex -> { marker, trail, trailLine, lastSeen, data }
-  let layer = null;
-  let trailLayer = null;
-  let timer = null;
+  const planes = new Map(); // hex -> { marker, el, trail, lastSeen, data }
+  let map = null;
   let sourceIdx = 0;
+  let visible = true;
   let showTrails = true;
 
   function altColor(alt) {
@@ -16,17 +15,12 @@
     return '#b18cff';
   }
 
-  function planeIcon(track, alt) {
+  function planeSvg(track, alt) {
     const color = altColor(alt);
     const rot = Number.isFinite(track) ? track : 0;
-    return L.divIcon({
-      className: 'plane-icon',
-      html: `<svg width="26" height="26" viewBox="0 0 24 24" style="transform:rotate(${rot}deg)">
-        <path fill="${color}" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>
-      </svg>`,
-      iconSize: [26, 26],
-      iconAnchor: [13, 13],
-    });
+    return `<svg width="26" height="26" viewBox="0 0 24 24" style="transform:rotate(${rot}deg)">
+      <path fill="${color}" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>
+    </svg>`;
   }
 
   function fmtAlt(a) {
@@ -91,66 +85,87 @@
     const now = Date.now();
     for (const ac of list) {
       if (!Number.isFinite(ac.lat) || !Number.isFinite(ac.lon)) continue;
-      const pos = [ac.lat, ac.lon];
       let p = planes.get(ac.hex);
       if (!p) {
-        const marker = L.marker(pos, { icon: planeIcon(ac.track, ac.alt_baro) });
-        marker.bindPopup(() => popupHtml(p.data), { className: 'dark-popup' });
-        marker.addTo(layer);
-        p = { marker, trail: [pos], trailLine: null, lastSeen: now, data: ac };
+        const el = CONAN.gl.el(`<div class="plane-icon">${planeSvg(ac.track, ac.alt_baro)}</div>`);
+        const hex = ac.hex;
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const cur = planes.get(hex);
+          if (cur) CONAN.gl.openPopup(map, cur.data.lat, cur.data.lon, popupHtml(cur.data));
+        });
+        p = { el, marker: null, trail: [[ac.lat, ac.lon]], lastSeen: now, data: ac };
+        if (visible) p.marker = CONAN.gl.addMarker(map, ac.lat, ac.lon, el);
         planes.set(ac.hex, p);
       } else {
-        p.marker.setLatLng(pos);
-        p.marker.setIcon(planeIcon(ac.track, ac.alt_baro));
+        if (p.marker) p.marker.setLngLat([ac.lon, ac.lat]);
+        p.el.innerHTML = planeSvg(ac.track, ac.alt_baro);
         const last = p.trail[p.trail.length - 1];
-        if (!last || last[0] !== pos[0] || last[1] !== pos[1]) {
-          p.trail.push(pos);
+        if (!last || last[0] !== ac.lat || last[1] !== ac.lon) {
+          p.trail.push([ac.lat, ac.lon]);
           if (p.trail.length > cfg.trailLength) p.trail.shift();
         }
         p.lastSeen = now;
         p.data = ac;
       }
-      // 航跡
-      if (showTrails && p.trail.length > 1) {
-        if (p.trailLine) {
-          p.trailLine.setLatLngs(p.trail);
-        } else {
-          p.trailLine = L.polyline(p.trail, {
-            color: altColor(ac.alt_baro), weight: 1.5, opacity: 0.5,
-          }).addTo(trailLayer);
-        }
-      }
     }
     // 移除過期
     for (const [hex, p] of planes) {
       if (now - p.lastSeen > cfg.staleMs) {
-        layer.removeLayer(p.marker);
-        if (p.trailLine) trailLayer.removeLayer(p.trailLine);
+        if (p.marker) p.marker.remove();
         planes.delete(hex);
       }
     }
+    updateTrails();
+  }
+
+  function updateTrails() {
+    const src = map.getSource('plane-trails');
+    if (!src) return;
+    if (!showTrails || !visible) {
+      src.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+    const features = [];
+    for (const p of planes.values()) {
+      if (p.trail.length < 2) continue;
+      features.push({
+        type: 'Feature',
+        properties: { color: altColor(p.data.alt_baro) },
+        geometry: { type: 'LineString', coordinates: p.trail.map(([la, lo]) => [lo, la]) },
+      });
+    }
+    src.setData({ type: 'FeatureCollection', features });
   }
 
   CONAN.aircraft = {
-    init(map) {
-      layer = L.layerGroup().addTo(map);
-      trailLayer = L.layerGroup().addTo(map);
+    init(m) {
+      map = m;
+      map.addSource('plane-trails', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({
+        id: 'plane-trails',
+        type: 'line',
+        source: 'plane-trails',
+        paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.5 },
+      });
       poll();
-      timer = setInterval(poll, cfg.intervalMs);
+      setInterval(poll, cfg.intervalMs);
     },
-    setVisible(on, map) {
-      if (on) { layer.addTo(map); if (showTrails) trailLayer.addTo(map); }
-      else { map.removeLayer(layer); map.removeLayer(trailLayer); }
-    },
-    setTrails(on, map) {
-      showTrails = on;
-      if (on) {
-        if (document.getElementById('layer-aircraft').checked) trailLayer.addTo(map);
-      } else {
-        map.removeLayer(trailLayer);
-        trailLayer.clearLayers();
-        for (const p of planes.values()) p.trailLine = null;
+    setVisible(on) {
+      visible = on;
+      for (const p of planes.values()) {
+        if (on && !p.marker) {
+          p.marker = CONAN.gl.addMarker(map, p.data.lat, p.data.lon, p.el);
+        } else if (!on && p.marker) {
+          p.marker.remove();
+          p.marker = null;
+        }
       }
+      updateTrails();
+    },
+    setTrails(on) {
+      showTrails = on;
+      updateTrails();
     },
   };
 })();

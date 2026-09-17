@@ -1,23 +1,18 @@
 /* 🚢 船舶圖層 — aisstream.io 即時 AIS（使用者自備免費金鑰，僅存於 localStorage） */
 (function () {
   const cfg = CONAN.config.ais;
-  const ships = new Map(); // mmsi -> { marker, lastSeen, data }
-  let layer = null;
+  const ships = new Map(); // mmsi -> { marker, el, lastSeen, ... }
+  let map = null;
+  let visible = true;
   let ws = null;
   let reconnectTimer = null;
-  let cleanTimer = null;
   let currentKey = null;
 
-  function shipIcon(cog) {
+  function shipSvg(cog) {
     const rot = Number.isFinite(cog) && cog < 360 ? cog : 0;
-    return L.divIcon({
-      className: 'ship-icon',
-      html: `<svg width="18" height="18" viewBox="0 0 24 24" style="transform:rotate(${rot}deg)">
-        <path fill="#3fd0a4" stroke="#0a2019" stroke-width="1" d="M12 2 L18 16 L12 13 L6 16 Z"/>
-      </svg>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
-    });
+    return `<svg width="18" height="18" viewBox="0 0 24 24" style="transform:rotate(${rot}deg)">
+      <path fill="#3fd0a4" stroke="#0a2019" stroke-width="1" d="M12 2 L18 16 L12 13 L6 16 Z"/>
+    </svg>`;
   }
 
   function popupHtml(s) {
@@ -95,15 +90,21 @@
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       if (!s) {
         if (ships.size >= cfg.maxShips) return;
-        const marker = L.marker([lat, lon], { icon: shipIcon(pr.Cog) });
-        s = { marker, mmsi, lastSeen: now };
-        marker.bindPopup(() => popupHtml(s));
-        marker.addTo(layer);
+        const el = CONAN.gl.el(`<div class="ship-icon">${shipSvg(pr.Cog)}</div>`);
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const cur = ships.get(mmsi);
+          if (cur) CONAN.gl.openPopup(map, cur.lat, cur.lon, popupHtml(cur));
+        });
+        s = { el, marker: null, mmsi, lastSeen: now };
+        if (visible) s.marker = CONAN.gl.addMarker(map, lat, lon, el);
         ships.set(mmsi, s);
       } else {
-        s.marker.setLatLng([lat, lon]);
-        s.marker.setIcon(shipIcon(pr.Cog));
+        if (s.marker) s.marker.setLngLat([lon, lat]);
+        s.el.innerHTML = shipSvg(pr.Cog);
       }
+      s.lat = lat;
+      s.lon = lon;
       s.sog = pr.Sog;
       s.cog = pr.Cog;
       s.lastSeen = now;
@@ -119,7 +120,7 @@
     const now = Date.now();
     for (const [mmsi, s] of ships) {
       if (now - s.lastSeen > cfg.staleMs) {
-        layer.removeLayer(s.marker);
+        if (s.marker) s.marker.remove();
         ships.delete(mmsi);
       }
     }
@@ -127,9 +128,9 @@
   }
 
   CONAN.ships = {
-    init(map) {
-      layer = L.layerGroup().addTo(map);
-      cleanTimer = setInterval(cleanup, 60000);
+    init(m) {
+      map = m;
+      setInterval(cleanup, 60000);
 
       const keyInput = document.getElementById('ais-key');
       const panel = document.getElementById('ais-panel');
@@ -157,8 +158,16 @@
         connect(key);
       });
     },
-    setVisible(on, map) {
-      if (on) layer.addTo(map); else map.removeLayer(layer);
+    setVisible(on) {
+      visible = on;
+      for (const s of ships.values()) {
+        if (on && !s.marker) {
+          s.marker = CONAN.gl.addMarker(map, s.lat, s.lon, s.el);
+        } else if (!on && s.marker) {
+          s.marker.remove();
+          s.marker = null;
+        }
+      }
     },
   };
 })();

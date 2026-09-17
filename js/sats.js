@@ -2,18 +2,9 @@
 (function () {
   const cfg = CONAN.config.sats;
   const satrecs = []; // { name, satrec }
-  const markers = new Map(); // name -> marker
-  let layer = null;
-  let timer = null;
-
-  function satIcon() {
-    return L.divIcon({
-      className: '',
-      html: '<div class="sat-icon">🛰️</div>',
-      iconSize: [22, 22],
-      iconAnchor: [11, 11],
-    });
-  }
+  const markers = new Map(); // name -> { marker, el, info }
+  let map = null;
+  let visible = true;
 
   function inRegion(lat, lon) {
     const b = CONAN.config.bounds, p = cfg.pad;
@@ -23,6 +14,16 @@
   function setStatus(text, cls) {
     document.getElementById('sat-status').textContent = text;
     CONAN.ui.setStatus('sats', cls, markers.size);
+  }
+
+  function popupHtml(info) {
+    return `<div class="popup">
+      <h3>🛰️ ${info.name}</h3>
+      <div class="kv"><span>高度</span><b>${Number.isFinite(info.altKm) ? Math.round(info.altKm).toLocaleString() + ' km' : '–'}</b></div>
+      <div class="kv"><span>星下點</span><b>${info.lat.toFixed(2)}, ${info.lon.toFixed(2)}</b></div>
+      <div class="kv"><span>推算時間</span><b>${info.time}</b></div>
+      <a href="https://www.n2yo.com/?s=${encodeURIComponent(info.name)}" target="_blank" rel="noopener">在 N2YO 追查 →</a>
+    </div>`;
   }
 
   /** 取 TLE：優先用 localStorage 快取（6 小時），過期才打 CelesTrak */
@@ -67,28 +68,27 @@
       const lon = satellite.degreesLong(gd.longitude);
       if (!Number.isFinite(lat) || !Number.isFinite(lon) || !inRegion(lat, lon)) continue;
       seen.add(name);
-      const altKm = gd.height;
+      const info = { name, lat, lon, altKm: gd.height, time: now.toLocaleTimeString('zh-TW') };
       let m = markers.get(name);
       if (!m) {
-        m = L.marker([lat, lon], { icon: satIcon() });
-        m.bindPopup('', { maxWidth: 300 });
-        m.addTo(layer);
+        const el = CONAN.gl.el('<div class="sat-icon">🛰️</div>');
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const cur = markers.get(name);
+          if (cur) CONAN.gl.openPopup(map, cur.info.lat, cur.info.lon, popupHtml(cur.info), { maxWidth: '300px' });
+        });
+        m = { el, marker: null, info };
+        if (visible) m.marker = CONAN.gl.addMarker(map, lat, lon, el);
         markers.set(name, m);
       } else {
-        m.setLatLng([lat, lon]);
+        m.info = info;
+        if (m.marker) m.marker.setLngLat([lon, lat]);
       }
-      m.getPopup().setContent(`<div class="popup">
-        <h3>🛰️ ${name}</h3>
-        <div class="kv"><span>高度</span><b>${Number.isFinite(altKm) ? Math.round(altKm).toLocaleString() + ' km' : '–'}</b></div>
-        <div class="kv"><span>星下點</span><b>${lat.toFixed(2)}, ${lon.toFixed(2)}</b></div>
-        <div class="kv"><span>推算時間</span><b>${now.toLocaleTimeString('zh-TW')}</b></div>
-        <a href="https://www.n2yo.com/?s=${encodeURIComponent(name)}" target="_blank" rel="noopener">在 N2YO 追查 →</a>
-      </div>`);
     }
     // 移出範圍的撤下
     for (const [name, m] of markers) {
       if (!seen.has(name)) {
-        layer.removeLayer(m);
+        if (m.marker) m.marker.remove();
         markers.delete(name);
       }
     }
@@ -113,16 +113,20 @@
       return;
     }
     propagate();
-    timer = setInterval(propagate, cfg.propagateMs);
+    setInterval(propagate, cfg.propagateMs);
   }
 
   CONAN.sats = {
-    init(map) {
-      layer = L.layerGroup().addTo(map);
+    init(m) {
+      map = m;
       load();
     },
-    setVisible(on, map) {
-      if (on) layer.addTo(map); else map.removeLayer(layer);
+    setVisible(on) {
+      visible = on;
+      for (const m of markers.values()) {
+        if (on && !m.marker) m.marker = CONAN.gl.addMarker(map, m.info.lat, m.info.lon, m.el);
+        else if (!on && m.marker) { m.marker.remove(); m.marker = null; }
+      }
     },
   };
 })();
