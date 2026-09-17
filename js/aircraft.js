@@ -76,7 +76,7 @@
   async function poll() {
     const [lat, lon] = queryCenter;
     const radius = queryRadiusNm;
-    let lastErr = null;
+    const attempts = []; // 記錄每個來源實際失敗原因，方便回報除錯
     for (let i = 0; i < cfg.sources.length; i++) {
       const idx = (sourceIdx + i) % cfg.sources.length;
       const src = cfg.sources[idx];
@@ -91,11 +91,18 @@
         document.getElementById('adsb-updated').textContent = new Date().toLocaleTimeString('zh-TW');
         return;
       } catch (e) {
-        lastErr = e;
+        const reason = e.name === 'TimeoutError' ? '逾時'
+          : e.name === 'AbortError' ? '逾時/中斷'
+          : e.message || e.name || '未知錯誤';
+        attempts.push(`${src.name}:${reason}`);
+        console.warn('[aircraft]', src.name, e);
       }
     }
     CONAN.ui.setStatus('aircraft', 'err', planes.size);
-    document.getElementById('adsb-source').textContent = `連線失敗（${lastErr && lastErr.name === 'TimeoutError' ? '逾時' : '網路/CORS'}）`;
+    // 全部來源都失敗：把每個來源的實際失敗原因列出來，而不是只顯示籠統的
+    // 「網路/CORS」——「Failed to fetch」多半是瀏覽器封鎖跨網域請求（CORS 或
+    // 內容攔截器），「HTTP 4xx/5xx」代表有連上但被伺服器拒絕。
+    document.getElementById('adsb-source').textContent = `全部連線失敗：${attempts.join('；')}`;
   }
 
   function update(list, queryLat, queryLon, radiusNm) {
