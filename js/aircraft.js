@@ -49,6 +49,20 @@
     </div>`;
   }
 
+  /** OpenSky states 陣列 → 與 ADS-B v2 相同的欄位（公尺/秒 → 英尺/節） */
+  function parseOpenSky(data) {
+    return (data.states || []).map((s) => ({
+      hex: s[0],
+      flight: (s[1] || '').trim(),
+      lon: s[5],
+      lat: s[6],
+      alt_baro: s[8] ? 'ground' : (Number.isFinite(s[7]) ? s[7] * 3.28084 : null),
+      gs: Number.isFinite(s[9]) ? s[9] * 1.94384 : null,
+      track: Number.isFinite(s[10]) ? s[10] : null,
+      squawk: s[14] || '',
+    }));
+  }
+
   async function poll() {
     const { center } = CONAN.config;
     let lastErr = null;
@@ -60,7 +74,7 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         sourceIdx = idx; // 記住成功的來源，下次優先
-        update(data.ac || data.aircraft || []);
+        update(src.format === 'opensky' ? parseOpenSky(data) : (data.ac || data.aircraft || []));
         CONAN.ui.setStatus('aircraft', 'ok', planes.size);
         document.getElementById('adsb-source').textContent = src.name;
         document.getElementById('adsb-updated').textContent = new Date().toLocaleTimeString('zh-TW');

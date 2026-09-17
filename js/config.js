@@ -15,6 +15,14 @@ CONAN.config = {
       { name: 'adsb.lol',       url: (lat, lon, nm) => `https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${nm}` },
       { name: 'adsb.fi',        url: (lat, lon, nm) => `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${nm}` },
       { name: 'airplanes.live', url: (lat, lon, nm) => `https://api.airplanes.live/v2/point/${lat}/${lon}/${nm}` },
+      { // 最後備援：OpenSky 匿名模式（歐洲學術網路，較少被擋；每日次數有限、更新較慢）
+        name: 'OpenSky',
+        format: 'opensky',
+        url: () => {
+          const b = CONAN.config.bounds;
+          return `https://opensky-network.org/api/states/all?lamin=${b.south}&lomin=${b.west}&lamax=${b.north}&lomax=${b.east}`;
+        },
+      },
     ],
     radiusNm: 250,          // 涵蓋台灣本島與周邊空域（API 上限 250 海里）
     intervalMs: 10000,      // 輪詢間隔
