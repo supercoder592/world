@@ -76,7 +76,7 @@
   async function load(key) {
     setCwaStatus('載入中…', 'warn');
     try {
-      const res = await fetch(cfg.buoyUrl(key), { signal: AbortSignal.timeout(20000) });
+      const res = await fetch(cfg.buoyUrl(key), { signal: CONAN.timeoutSignal(20000) });
       if (res.status === 401 || res.status === 403) throw new Error('授權碼無效');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -113,7 +113,7 @@
     init(map) {
       layer = L.layerGroup().addTo(map);
       const keyInput = document.getElementById('cwa-key');
-      const saved = localStorage.getItem(CONAN.config.storageKeys.cwaKey);
+      const saved = CONAN.store.get(CONAN.config.storageKeys.cwaKey);
       if (saved) {
         keyInput.value = saved;
         start(saved);
@@ -123,12 +123,12 @@
       document.getElementById('cwa-connect').addEventListener('click', () => {
         const key = keyInput.value.trim();
         if (!key) {
-          localStorage.removeItem(CONAN.config.storageKeys.cwaKey);
+          CONAN.store.del(CONAN.config.storageKeys.cwaKey);
           clearInterval(timer);
           setCwaStatus('未設定金鑰', 'warn');
           return;
         }
-        localStorage.setItem(CONAN.config.storageKeys.cwaKey, key);
+        CONAN.store.set(CONAN.config.storageKeys.cwaKey, key);
         start(key);
       });
     },

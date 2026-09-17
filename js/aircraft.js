@@ -56,7 +56,7 @@
       const idx = (sourceIdx + i) % cfg.sources.length;
       const src = cfg.sources[idx];
       try {
-        const res = await fetch(src.url(center[0], center[1], cfg.radiusNm), { signal: AbortSignal.timeout(8000) });
+        const res = await fetch(src.url(center[0], center[1], cfg.radiusNm), { signal: CONAN.timeoutSignal(8000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         sourceIdx = idx; // 記住成功的來源，下次優先

@@ -132,7 +132,7 @@
       cleanTimer = setInterval(cleanup, 60000);
 
       const keyInput = document.getElementById('ais-key');
-      const saved = localStorage.getItem(CONAN.config.storageKeys.aisKey);
+      const saved = CONAN.store.get(CONAN.config.storageKeys.aisKey);
       if (saved) {
         keyInput.value = saved;
         connect(saved);
@@ -142,13 +142,13 @@
       document.getElementById('ais-connect').addEventListener('click', () => {
         const key = keyInput.value.trim();
         if (!key) {
-          localStorage.removeItem(CONAN.config.storageKeys.aisKey);
+          CONAN.store.del(CONAN.config.storageKeys.aisKey);
           currentKey = null;
           disconnect();
           setAisStatus('未設定金鑰', 'warn');
           return;
         }
-        localStorage.setItem(CONAN.config.storageKeys.aisKey, key);
+        CONAN.store.set(CONAN.config.storageKeys.aisKey, key);
         connect(key);
       });
     },

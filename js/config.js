@@ -7,10 +7,12 @@ CONAN.config = {
   zoom: 8,
   bounds: { south: 20.5, west: 117.5, north: 26.8, east: 123.5 },
 
-  // ADS-B 公開匯流 API（皆免金鑰、支援 CORS、回傳格式相同；依序自動備援）
+  // ADS-B 公開匯流 API（皆免金鑰、支援 CORS、回傳格式相同；依序自動備援，
+  // 同站兩種路徑寫法都列入以防 API 改版）
   adsb: {
     sources: [
       { name: 'adsb.lol',       url: (lat, lon, nm) => `https://api.adsb.lol/v2/point/${lat}/${lon}/${nm}` },
+      { name: 'adsb.lol',       url: (lat, lon, nm) => `https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${nm}` },
       { name: 'adsb.fi',        url: (lat, lon, nm) => `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${nm}` },
       { name: 'airplanes.live', url: (lat, lon, nm) => `https://api.airplanes.live/v2/point/${lat}/${lon}/${nm}` },
     ],
@@ -40,6 +42,7 @@ CONAN.config = {
   tdx: {
     tokenUrl: 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token',
     highwayCctvUrl: 'https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Highway?%24format=JSON',
+    freewayCctvUrl: 'https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Freeway?%24format=JSON',
     cityCctvUrl: (city) => `https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/City/${city}?%24format=JSON`,
   },
 
@@ -55,4 +58,20 @@ CONAN.config = {
     tdxCreds: 'conan.tdxCreds',
     cwaKey: 'conan.cwaKey',
   },
+};
+
+/** AbortSignal.timeout 相容層 — 舊版 Safari/瀏覽器沒有此 API，缺了會讓所有 fetch 拋錯 */
+CONAN.timeoutSignal = function (ms) {
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) return AbortSignal.timeout(ms);
+  if (typeof AbortController === 'undefined') return undefined;
+  const c = new AbortController();
+  setTimeout(() => c.abort(), ms);
+  return c.signal;
+};
+
+/** localStorage 相容層 — 私密瀏覽等情境下存取可能直接拋錯 */
+CONAN.store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* noop */ } },
+  del(k) { try { localStorage.removeItem(k); } catch { /* noop */ } },
 };

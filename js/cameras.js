@@ -147,7 +147,7 @@
     const statusEl = document.getElementById('cctv-status');
     for (const url of cfg.sources) {
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+        const res = await fetch(url, { signal: CONAN.timeoutSignal(15000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         let items;
         if (url.endsWith('.json')) {
@@ -165,6 +165,19 @@
       } catch (e) {
         // 換下一個來源
       }
+    }
+    // 高公局主機失敗（常見原因：未開 CORS）→ 改走 TDX 國道端點備援
+    try {
+      const data = await CONAN.tdx.fetchJson(CONAN.config.tdx.freewayCctvUrl);
+      const added = addMotcItems(extractTdxItems(data), 'fw', '國道');
+      if (added > 0) {
+        statusEl.textContent = `已載入 ${added} 支（TDX 備援）`;
+        return;
+      }
+    } catch (e) {
+      statusEl.textContent = `無法載入：${e.message || 'CORS/網路限制'}`;
+      CONAN.ui.setStatus('cameras', camCount > 0 ? 'ok' : 'warn', camCount);
+      return;
     }
     statusEl.textContent = '無法載入（來源或 CORS 限制）';
     CONAN.ui.setStatus('cameras', camCount > 0 ? 'ok' : 'warn', camCount);
@@ -203,7 +216,7 @@
   /* ---------- 使用者自訂監視器 ---------- */
   function loadCustom() {
     let list = [];
-    try { list = JSON.parse(localStorage.getItem(CONAN.config.storageKeys.customCams)) || []; } catch { /* noop */ }
+    try { list = JSON.parse(CONAN.store.get(CONAN.config.storageKeys.customCams)) || []; } catch { /* noop */ }
     for (const cam of list) {
       cam.custom = true;
       addCamera(cam);
@@ -214,7 +227,7 @@
   let customList = [];
 
   function saveCustom() {
-    localStorage.setItem(
+    CONAN.store.set(
       CONAN.config.storageKeys.customCams,
       JSON.stringify(customList.map(({ id, name, lat, lon, url }) => ({ id, name, lat, lon, url })))
     );
