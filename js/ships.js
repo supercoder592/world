@@ -146,6 +146,8 @@
       } else {
         setAisStatus('未設定金鑰', 'warn');
       }
+      // 有沒有金鑰都算「這一步跑過了」——WebSocket 連線成功與否不卡開場畫面
+      CONAN.ui.markLoaded('ships');
       document.getElementById('ais-connect').addEventListener('click', () => {
         const key = keyInput.value.trim();
         if (!key) {

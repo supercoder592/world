@@ -69,7 +69,7 @@
     init(m) {
       map = m;
       cullUpdate = CONAN.gl.wireHemisphereCulling(map, () => items);
-      load();
+      load().finally(() => CONAN.ui.markLoaded('quakes'));
       setInterval(load, cfg.refreshMs);
     },
     setVisible(on) {

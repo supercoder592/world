@@ -121,6 +121,7 @@
       } else {
         setCwaStatus('未設定金鑰', 'warn');
       }
+      CONAN.ui.markLoaded('buoys'); // 有沒有金鑰都算「這一步跑過了」
       document.getElementById('cwa-connect').addEventListener('click', () => {
         const key = keyInput.value.trim();
         if (!key) {

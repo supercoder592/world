@@ -120,7 +120,7 @@
       cullUpdate = CONAN.gl.wireHemisphereCulling(map, () =>
         [...markers.values()].map((mk) => ({ lat: mk.info.lat, lon: mk.info.lon, marker: mk.marker }))
       );
-      load();
+      load().finally(() => CONAN.ui.markLoaded('sats'));
     },
     setVisible(on) {
       visible = on;

@@ -91,6 +91,7 @@
         document.getElementById('adsb-source').textContent = src.name;
         document.getElementById('adsb-updated').textContent = new Date().toLocaleTimeString('zh-TW');
         if (cullUpdate) cullUpdate();
+        CONAN.ui.markLoaded('aircraft'); // 只有第一次會真的生效（開場畫面用）
         return;
       } catch (e) {
         const reason = e.name === 'TimeoutError' ? '逾時'
@@ -105,6 +106,7 @@
     // 「網路/CORS」——「Failed to fetch」多半是瀏覽器封鎖跨網域請求（CORS 或
     // 內容攔截器），「HTTP 4xx/5xx」代表有連上但被伺服器拒絕。
     document.getElementById('adsb-source').textContent = `全部連線失敗：${attempts.join('；')}`;
+    CONAN.ui.markLoaded('aircraft');
   }
 
   function update(list, queryLat, queryLon, radiusNm) {
