@@ -1,7 +1,9 @@
 /* 🌏 地震圖層 — USGS 全球即時地震（免金鑰），過濾台灣周邊 */
 (function () {
   const cfg = CONAN.config.quakes;
-  let layer = null;
+  let map = null;
+  let visible = true;
+  let items = []; // { marker, el, lat, lon }
   let count = 0;
 
   function magColor(m) {
@@ -27,25 +29,35 @@
     </div>`;
   }
 
+  function clearAll() {
+    for (const it of items) if (it.marker) it.marker.remove();
+    items = [];
+  }
+
   async function load() {
     const statusEl = document.getElementById('quake-status');
     try {
       const res = await fetch(cfg.url, { signal: CONAN.timeoutSignal(15000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      layer.clearLayers();
+      clearAll();
       count = 0;
       for (const f of data.features || []) {
         const [lon, lat, depth] = f.geometry.coordinates;
         if (!inRegion(lat, lon)) continue;
         const mag = f.properties.mag || 0;
-        L.circleMarker([lat, lon], {
-          radius: Math.max(4, mag * 2.4),
-          color: magColor(mag),
-          weight: 1.5,
-          fillColor: magColor(mag),
-          fillOpacity: 0.35,
-        }).bindPopup(popupHtml(f, depth), { maxWidth: 300 }).addTo(layer);
+        const size = Math.max(10, mag * 5.5);
+        const color = magColor(mag);
+        const el = CONAN.gl.el(
+          `<div class="quake-icon" style="width:${size}px;height:${size}px;border-color:${color};background:${color}59"></div>`
+        );
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          CONAN.gl.openPopup(map, lat, lon, popupHtml(f, depth), { maxWidth: '300px' });
+        });
+        const it = { el, lat, lon, marker: null };
+        if (visible) it.marker = CONAN.gl.addMarker(map, lat, lon, el);
+        items.push(it);
         count++;
       }
       statusEl.textContent = `近 7 天 ${count} 起`;
@@ -57,13 +69,17 @@
   }
 
   CONAN.quakes = {
-    init(map) {
-      layer = L.layerGroup().addTo(map);
+    init(m) {
+      map = m;
       load();
       setInterval(load, cfg.refreshMs);
     },
-    setVisible(on, map) {
-      if (on) layer.addTo(map); else map.removeLayer(layer);
+    setVisible(on) {
+      visible = on;
+      for (const it of items) {
+        if (on && !it.marker) it.marker = CONAN.gl.addMarker(map, it.lat, it.lon, it.el);
+        else if (!on && it.marker) { it.marker.remove(); it.marker = null; }
+      }
     },
   };
 })();

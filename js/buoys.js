@@ -1,18 +1,10 @@
 /* 🌊 海象浮標圖層 — 中央氣象署開放資料 O-B0075-001（需免費授權碼，僅存於 localStorage） */
 (function () {
   const cfg = CONAN.config.cwa;
-  const buoys = new Map(); // stationId -> marker
-  let layer = null;
+  const buoys = new Map(); // id -> { marker, el, st }
+  let map = null;
+  let visible = true;
   let timer = null;
-
-  function buoyIcon() {
-    return L.divIcon({
-      className: '',
-      html: '<div class="buoy-icon">🌊</div>',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-    });
-  }
 
   /** CWA 的值可能是字串、數字或缺測代碼（None / -99 / -999…），統一整理 */
   function val(x, unit = '') {
@@ -85,16 +77,22 @@
       if (!stations.length) throw new Error('來源無測站資料');
 
       for (const st of stations) {
-        let m = buoys.get(st.id || st.name);
-        if (!m) {
-          m = L.marker([st.lat, st.lon], { icon: buoyIcon() });
-          m.addTo(layer);
-          buoys.set(st.id || st.name, m);
+        const key2 = st.id || st.name;
+        let b = buoys.get(key2);
+        if (!b) {
+          const el = CONAN.gl.el('<div class="buoy-icon">🌊</div>');
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const cur = buoys.get(key2);
+            if (cur) CONAN.gl.openPopup(map, cur.st.lat, cur.st.lon, popupHtml(cur.st), { maxWidth: '300px' });
+          });
+          b = { el, marker: null, st };
+          if (visible) b.marker = CONAN.gl.addMarker(map, st.lat, st.lon, el);
+          buoys.set(key2, b);
         } else {
-          m.setLatLng([st.lat, st.lon]);
+          b.st = st;
+          if (b.marker) b.marker.setLngLat([st.lon, st.lat]);
         }
-        m.unbindPopup();
-        m.bindPopup(popupHtml(st), { maxWidth: 300 });
       }
       setCwaStatus(`已載入 ${buoys.size} 站`, 'ok');
       document.getElementById('cwa-updated').textContent = new Date().toLocaleTimeString('zh-TW');
@@ -110,8 +108,8 @@
   }
 
   CONAN.buoys = {
-    init(map) {
-      layer = L.layerGroup().addTo(map);
+    init(m) {
+      map = m;
       const keyInput = document.getElementById('cwa-key');
       const panel = document.getElementById('cwa-panel');
       const saved = CONAN.store.get(CONAN.config.storageKeys.cwaKey);
@@ -137,8 +135,12 @@
         start(key);
       });
     },
-    setVisible(on, map) {
-      if (on) layer.addTo(map); else map.removeLayer(layer);
+    setVisible(on) {
+      visible = on;
+      for (const b of buoys.values()) {
+        if (on && !b.marker) b.marker = CONAN.gl.addMarker(map, b.st.lat, b.st.lon, b.el);
+        else if (!on && b.marker) { b.marker.remove(); b.marker = null; }
+      }
     },
   };
 })();

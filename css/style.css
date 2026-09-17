@@ -162,22 +162,25 @@ details.panel[open] > summary { margin-bottom: 8px; }
   box-shadow: 0 0 6px rgba(177, 140, 255, .55);
 }
 
-/* 監視器聚合標記（深色主題覆寫 markercluster 預設樣式） */
-.marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
-  background: rgba(78, 161, 255, .25);
-}
-.marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
-  background: rgba(78, 161, 255, .8);
-  color: #08111e; font-weight: 700;
+.quake-icon {
+  border-radius: 50%;
+  border: 1.5px solid;
+  box-sizing: border-box;
 }
 
-/* ---------- Leaflet 彈窗（深色） ---------- */
-.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+/* ---------- MapLibre 彈窗與控制列（深色） ---------- */
+.maplibregl-popup-content {
   background: var(--panel2); color: var(--text);
   box-shadow: 0 4px 16px rgba(0, 0, 0, .6);
+  border-radius: 8px;
+  padding: 12px 14px; font-size: 13px;
 }
-.leaflet-popup-content { margin: 12px 14px; font-size: 13px; }
-.leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: var(--panel2); }
+.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: var(--panel2); }
+.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--panel2); }
+.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--panel2); }
+.maplibregl-popup-close-button { color: var(--muted); font-size: 18px; padding: 2px 8px; }
+.maplibregl-popup-close-button:hover { color: var(--text); background: transparent; }
 
 .popup h3 { margin: 0 0 6px; font-size: 14px; color: var(--accent2); }
 .popup .kv { min-width: 200px; }
@@ -188,11 +191,17 @@ details.panel[open] > summary { margin-bottom: 8px; }
 }
 .popup .cam-actions { margin-top: 6px; display: flex; gap: 10px; font-size: 12px; }
 
-.leaflet-control-attribution {
+.maplibregl-ctrl-attrib {
   background: rgba(13, 17, 23, .75) !important;
   color: var(--muted) !important;
 }
-.leaflet-control-attribution a { color: var(--accent) !important; }
+.maplibregl-ctrl-attrib a { color: var(--accent) !important; }
+.maplibregl-ctrl-group {
+  background: var(--panel) !important;
+}
+.maplibregl-ctrl-group button { filter: invert(0.85); }
+
+.maplibregl-marker { cursor: pointer; }
 
 /* ---------- 錯誤診斷條 ---------- */
 #diag {
