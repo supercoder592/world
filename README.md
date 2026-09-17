@@ -12,6 +12,8 @@
 | 🚢 船舶 | [aisstream.io](https://aisstream.io) 即時 AIS WebSocket 串流 | 免費金鑰（自行註冊，僅存於瀏覽器 localStorage） |
 | 📷 監視器 | 國道：高速公路局開放資料（免金鑰）。省道 / 22 縣市：[交通部 TDX](https://tdx.transportdata.tw/)（匿名可試用，免費金鑰解除每日次數限制）。另可自行新增任何公開影像網址（JPG 快照 / MJPEG / HLS / 網頁連結） | 免金鑰（TDX 金鑰選填） |
 | 🌊 海象浮標 | [中央氣象署開放資料](https://opendata.cwa.gov.tw/) 海象監測浮標（O-B0075-001）：浪高、波向、週期、海溫、風速、潮位 | 免費授權碼（自行註冊，僅存於瀏覽器 localStorage） |
+| 🌏 地震 | [USGS](https://earthquake.usgs.gov/) 全球即時地震目錄，過濾台灣周邊近 7 天，依規模著色 | 免金鑰 |
+| 🛰️ 衛星 | [CelesTrak](https://celestrak.org/) 軌道根數（最亮衛星＋太空站），瀏覽器端 [satellite.js](https://github.com/shashwatak/satellite-js) SGP4 推算，每 5 秒更新頭頂位置（TLE 快取 6 小時） | 免金鑰 |
 
 - 每 10 秒更新飛機位置，依高度著色並顯示航跡
 - AIS 船位即時串流（台灣周邊海域 20.5°N–26.8°N、117.5°E–123.5°E）
@@ -50,9 +52,15 @@ python3 -m http.server 8080
 
 - [x] 公路局省道 / 縣市政府開放資料 CCTV 圖層（TDX）
 - [x] 中央氣象署海象浮標觀測
-- [ ] 氣象署潮位站 / 地震觀測
+- [x] 地震圖層（USGS 台灣周邊）
+- [x] 頭頂衛星圖層（CelesTrak + SGP4）
+- [ ] 氣象署潮位站觀測
 - [ ] 擴大搜查範圍：沖繩、菲律賓、整個西太平洋
 - [ ] 事件回放與航跡歷史
+
+## 🙏 致敬
+
+衛星與地震圖層的靈感來自 [God's Eye View](https://github.com/bilawalsidhu/gods-eye-view)——同樣「把公開訊號放上同一張地圖」精神的 3D 地球儀專案。
 
 ## ⚖️ 聲明
 

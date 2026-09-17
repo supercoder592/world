@@ -36,6 +36,12 @@
       <span class="status-chip" id="status-buoys" title="氣象署海象浮標">
         <span class="dot"></span>🌊 浮標 <b id="count-buoys">–</b>
       </span>
+      <span class="status-chip" id="status-quakes" title="USGS 台灣周邊地震">
+        <span class="dot"></span>🌏 地震 <b id="count-quakes">–</b>
+      </span>
+      <span class="status-chip" id="status-sats" title="頭頂衛星（CelesTrak）">
+        <span class="dot"></span>🛰️ 衛星 <b id="count-sats">–</b>
+      </span>
       <span class="clock" id="clock">--:--:--</span>
     </div>
     <button id="sidebar-toggle" title="開關事件簿">☰ 事件簿</button>
@@ -49,6 +55,8 @@
         <label class="toggle"><input type="checkbox" id="layer-ships" checked> 🚢 船舶（AIS）</label>
         <label class="toggle"><input type="checkbox" id="layer-cameras" checked> 📷 公開監視器</label>
         <label class="toggle"><input type="checkbox" id="layer-buoys" checked> 🌊 海象浮標（氣象署）</label>
+        <label class="toggle"><input type="checkbox" id="layer-quakes" checked> 🌏 地震（USGS）</label>
+        <label class="toggle"><input type="checkbox" id="layer-sats" checked> 🛰️ 頭頂衛星（CelesTrak）</label>
         <label class="toggle"><input type="checkbox" id="opt-trails" checked> 〰️ 顯示航跡</label>
         <label class="toggle"><input type="checkbox" id="opt-dark" checked> 🌙 夜間地圖</label>
       </section>
@@ -151,6 +159,17 @@
       </section>
 
       <section class="panel">
+        <h2>🌏 地震＆🛰️ 衛星</h2>
+        <p class="hint">
+          皆免金鑰：地震取 USGS 全球即時目錄（過濾台灣周邊、近 7 天）；
+          衛星取 CelesTrak 軌道根數（最亮衛星＋太空站），在你的瀏覽器內以
+          SGP4 推算，每 5 秒更新一次頭頂位置。
+        </p>
+        <div class="kv"><span>地震</span><b id="quake-status">載入中…</b></div>
+        <div class="kv"><span>衛星</span><b id="sat-status">載入中…</b></div>
+      </section>
+
+      <section class="panel">
         <h2>🔗 情報來源（官方入口）</h2>
         <ul class="links">
           <li><a href="https://1968.freeway.gov.tw/" target="_blank" rel="noopener">高速公路局 1968 即時路況</a></li>
@@ -159,6 +178,9 @@
           <li><a href="https://tdx.transportdata.tw/" target="_blank" rel="noopener">交通部 TDX 運輸資料流通服務</a></li>
           <li><a href="https://map.adsb.lol/" target="_blank" rel="noopener">adsb.lol 全球航跡地圖</a></li>
           <li><a href="https://aisstream.io/" target="_blank" rel="noopener">AISStream 免費 AIS 串流</a></li>
+          <li><a href="https://earthquake.usgs.gov/earthquakes/map/" target="_blank" rel="noopener">USGS 全球地震地圖</a></li>
+          <li><a href="https://celestrak.org/" target="_blank" rel="noopener">CelesTrak 衛星軌道資料</a></li>
+          <li><a href="https://github.com/bilawalsidhu/gods-eye-view" target="_blank" rel="noopener">God's Eye View（靈感來源）</a></li>
         </ul>
       </section>
 
@@ -179,12 +201,15 @@
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>(window.L && window.L.markerClusterGroup) || document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"><\/script>')</script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/satellite.js@6.0.0/dist/satellite.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/tdx.js"></script>
   <script src="js/aircraft.js"></script>
   <script src="js/ships.js"></script>
   <script src="js/cameras.js"></script>
   <script src="js/buoys.js"></script>
+  <script src="js/quakes.js"></script>
+  <script src="js/sats.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

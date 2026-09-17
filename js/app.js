@@ -76,6 +76,8 @@
     ['船舶', () => CONAN.ships.init(map)],
     ['監視器', () => CONAN.cameras.init(map)],
     ['浮標', () => CONAN.buoys.init(map)],
+    ['地震', () => CONAN.quakes.init(map)],
+    ['衛星', () => CONAN.sats.init(map)],
   ]) {
     try { fn(); } catch (e) {
       console.error(`[${name}]`, e);
@@ -95,6 +97,12 @@
   });
   document.getElementById('layer-buoys').addEventListener('change', (e) => {
     CONAN.buoys.setVisible(e.target.checked, map);
+  });
+  document.getElementById('layer-quakes').addEventListener('change', (e) => {
+    CONAN.quakes.setVisible(e.target.checked, map);
+  });
+  document.getElementById('layer-sats').addEventListener('change', (e) => {
+    CONAN.sats.setVisible(e.target.checked, map);
   });
   document.getElementById('opt-trails').addEventListener('change', (e) => {
     CONAN.aircraft.setTrails(e.target.checked, map);

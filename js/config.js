@@ -52,6 +52,22 @@ CONAN.config = {
     refreshMs: 10 * 60 * 1000, // 浮標每小時觀測數筆，10 分鐘重抓一次即可
   },
 
+  // 地震：USGS 全球即時地震（免金鑰、CORS 開放），過濾台灣周邊
+  quakes: {
+    url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson',
+    refreshMs: 5 * 60 * 1000,
+    pad: 4, // 觀測框外擴度數（台灣周邊地震帶）
+  },
+
+  // 衛星：CelesTrak TLE（免金鑰）＋ satellite.js 瀏覽器端軌道推算
+  sats: {
+    groups: ['visual', 'stations'], // 最亮衛星 + 太空站
+    tleUrl: (g) => `https://celestrak.org/NORAD/elements/gp.php?GROUP=${g}&FORMAT=tle`,
+    tleCacheMs: 6 * 60 * 60 * 1000, // TLE 六小時更新一次即可，尊重 CelesTrak 流量
+    propagateMs: 5000,              // 每 5 秒重新推算位置
+    pad: 8,                         // 顯示星下點在台灣周邊 ±8 度內的衛星
+  },
+
   storageKeys: {
     aisKey: 'conan.aisKey',
     customCams: 'conan.customCams',

@@ -149,6 +149,14 @@ details summary { cursor: pointer; font-size: 13px; color: var(--accent); }
   box-shadow: 0 0 6px rgba(63, 208, 164, .55);
 }
 
+.sat-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #1d1830; border: 1.5px solid #b18cff;
+  font-size: 12px;
+  box-shadow: 0 0 6px rgba(177, 140, 255, .55);
+}
+
 /* 監視器聚合標記（深色主題覆寫 markercluster 預設樣式） */
 .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
   background: rgba(78, 161, 255, .25);
