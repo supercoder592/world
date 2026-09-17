@@ -45,7 +45,25 @@
       const toggle = document.getElementById(`toggle-${kind}`);
       if (toggle) toggle.style.display = on ? '' : 'none';
     },
+    /** 站內預覽視窗：在同一頁面用 iframe 開啟外部連結，不用跳新分頁離開地圖 */
+    openLightbox(url, title) {
+      document.getElementById('lightbox-title').textContent = title || url;
+      document.getElementById('lightbox-newtab').href = url;
+      document.getElementById('lightbox-frame').src = url;
+      document.getElementById('lightbox').hidden = false;
+    },
+    closeLightbox() {
+      document.getElementById('lightbox').hidden = true;
+      document.getElementById('lightbox-frame').src = 'about:blank';
+    },
   };
+  document.getElementById('lightbox-close').addEventListener('click', CONAN.ui.closeLightbox);
+  document.getElementById('lightbox').addEventListener('click', (e) => {
+    if (e.target.id === 'lightbox') CONAN.ui.closeLightbox();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.getElementById('lightbox').hidden) CONAN.ui.closeLightbox();
+  });
 
   /* ---------- 地圖：球體地球（globe 投影），縮小是地球、放大是街道圖 ---------- */
   const style = {
