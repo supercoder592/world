@@ -9,7 +9,7 @@
   let activeHls = null;
 
   function inBounds(lat, lon) {
-    const b = CONAN.config.bounds, p = 1.5;
+    const b = CONAN.config.taiwan.bounds, p = 1.5;
     return lat >= b.south - p && lat <= b.north + p && lon >= b.west - p && lon <= b.east + p;
   }
 

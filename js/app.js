@@ -105,8 +105,8 @@
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
   map.on('load', () => {
-    // 觀測範圍框（柯南的搜查範圍）
-    const b = cfg.bounds;
+    // 台灣監視器涵蓋範圍框（飛機／船舶／地震／衛星已是全球，這裡只標示 CCTV 資料範圍）
+    const b = cfg.taiwan.bounds;
     map.addSource('obs-box', {
       type: 'geojson',
       data: {
@@ -175,6 +175,10 @@
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('hidden');
     setTimeout(() => map.resize(), 60);
+  });
+  document.getElementById('home-taiwan').addEventListener('click', () => {
+    const t = cfg.taiwan;
+    map.flyTo({ center: [t.center[1], t.center[0]], zoom: t.zoom, essential: true });
   });
 
   /* ---------- 時鐘 ---------- */
