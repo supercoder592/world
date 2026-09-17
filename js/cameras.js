@@ -10,7 +10,10 @@
   function detectType(url) {
     const u = (url || '').toLowerCase();
     if (u.includes('.m3u8')) return 'hls';
-    if (u.includes('mjpg') || u.includes('mjpeg') || u.includes('.jpg') || u.includes('.jpeg') || u.includes('snapshot')) return 'img';
+    if (u.startsWith('rtsp')) return 'link';                     // 瀏覽器播不了 RTSP
+    if (u.includes('mjpg') || u.includes('mjpeg')) return 'mjpeg'; // 動態串流：設一次 src 即可
+    if (u.includes('.jpg') || u.includes('.jpeg') || u.includes('snapshot')) return 'img';
+    if (u.startsWith('http')) return 'tryimg';                   // 未知網址：先試著當影像嵌，失敗再退回連結
     return 'link';
   }
 
@@ -32,10 +35,13 @@
   function popupHtml(cam) {
     const type = detectType(cam.url);
     let media = '';
-    if (type === 'img') {
-      media = `<img class="cam-view" id="cam-live" alt="${cam.name}" src="">`;
+    if (type === 'img' || type === 'mjpeg' || type === 'tryimg') {
+      // referrerpolicy 是關鍵：多數政府影像主機會拒絕帶外站 Referer 的請求
+      media = `<img class="cam-view" id="cam-live" alt="${cam.name}" referrerpolicy="no-referrer" src="">
+        <p class="hint cam-fallback" id="cam-fallback" hidden>⚠️ 此來源阻擋內嵌，請點下方「開啟原始來源」觀看。</p>`;
     } else if (type === 'hls') {
-      media = `<video class="cam-view" id="cam-live" muted autoplay playsinline></video>`;
+      media = `<video class="cam-view" id="cam-live" muted autoplay playsinline></video>
+        <p class="hint cam-fallback" id="cam-fallback" hidden>⚠️ 此來源阻擋內嵌，請點下方「開啟原始來源」觀看。</p>`;
     } else {
       media = `<p class="hint">此監視器為外部網頁，點下方連結開啟。</p>`;
     }
@@ -55,6 +61,14 @@
     const type = detectType(cam.url);
     const el = popupEl.querySelector('#cam-live');
     if (!el) return;
+    const fallback = popupEl.querySelector('#cam-fallback');
+    const showFallback = () => {
+      stopViewers();
+      el.hidden = true;
+      if (fallback) fallback.hidden = false;
+    };
+    el.onerror = showFallback;
+
     if (type === 'img') {
       const refresh = () => {
         // 加上時間戳避免快取，取得最新快照
@@ -63,13 +77,20 @@
       };
       refresh();
       activeSnapshotTimer = setInterval(refresh, cfg.snapshotRefreshMs);
+    } else if (type === 'mjpeg' || type === 'tryimg') {
+      // MJPEG 是連續串流，設定一次 src 讓它自己播，不需輪詢重載
+      el.src = cam.url;
     } else if (type === 'hls') {
       if (window.Hls && Hls.isSupported()) {
         activeHls = new Hls({ maxBufferLength: 10 });
         activeHls.loadSource(cam.url);
         activeHls.attachMedia(el);
+        activeHls.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal) showFallback(); });
       } else if (el.canPlayType('application/vnd.apple.mpegurl')) {
         el.src = cam.url;
+        el.onerror = showFallback;
+      } else {
+        showFallback();
       }
     }
     const del = popupEl.querySelector('[data-del]');
