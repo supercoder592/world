@@ -185,6 +185,7 @@ details.panel[open] > summary { margin-bottom: 8px; }
 .popup h3 { margin: 0 0 6px; font-size: 14px; color: var(--accent2); }
 .popup .kv { min-width: 200px; }
 .popup a { color: var(--accent); }
+.popup img.cam-view[hidden], .popup video.cam-view[hidden] { display: none; }
 .popup img.cam-view, .popup video.cam-view {
   display: block; width: 300px; max-width: 72vw;
   border-radius: 6px; margin-top: 8px; background: #000;
@@ -204,6 +205,7 @@ details.panel[open] > summary { margin-bottom: 8px; }
 .maplibregl-marker { cursor: pointer; }
 
 /* ---------- 站內預覽視窗（lightbox） ---------- */
+#lightbox[hidden] { display: none; }
 #lightbox {
   position: fixed; inset: 0; z-index: 2500;
   background: rgba(5, 7, 12, .88);
