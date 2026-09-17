@@ -52,9 +52,9 @@
       <section class="panel">
         <h2>🗂️ 圖層</h2>
         <label class="toggle"><input type="checkbox" id="layer-aircraft" checked> ✈️ 飛機（ADS-B）</label>
-        <label class="toggle"><input type="checkbox" id="layer-ships" checked> 🚢 船舶（AIS）</label>
+        <label class="toggle" id="toggle-ships"><input type="checkbox" id="layer-ships" checked> 🚢 船舶（AIS）</label>
         <label class="toggle"><input type="checkbox" id="layer-cameras" checked> 📷 公開監視器</label>
-        <label class="toggle"><input type="checkbox" id="layer-buoys" checked> 🌊 海象浮標（氣象署）</label>
+        <label class="toggle" id="toggle-buoys"><input type="checkbox" id="layer-buoys" checked> 🌊 海象浮標（氣象署）</label>
         <label class="toggle"><input type="checkbox" id="layer-quakes" checked> 🌏 地震（USGS）</label>
         <label class="toggle"><input type="checkbox" id="layer-sats" checked> 🛰️ 頭頂衛星（CelesTrak）</label>
         <label class="toggle"><input type="checkbox" id="opt-trails" checked> 〰️ 顯示航跡</label>
@@ -68,18 +68,19 @@
         <div class="kv"><span>更新於</span><b id="adsb-updated">–</b></div>
       </section>
 
-      <section class="panel">
-        <h2>🚢 船舶（AIS）</h2>
+      <details class="panel" id="ais-panel">
+        <summary>🚢 船舶（AIS）— 需免費金鑰</summary>
         <p class="hint">
           使用 <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a> 免費 API 金鑰
           （註冊即可取得），即時串流台灣周邊海域 AIS 船位。金鑰只存在你的瀏覽器（localStorage）。
+          填入金鑰後，船舶圖層才會出現。
         </p>
         <div class="row">
           <input type="password" id="ais-key" placeholder="貼上 AISStream API Key">
           <button id="ais-connect">連線</button>
         </div>
         <div class="kv"><span>狀態</span><b id="ais-status">未設定金鑰</b></div>
-      </section>
+      </details>
 
       <section class="panel">
         <h2>📷 公開監視器</h2>
@@ -143,12 +144,13 @@
         </details>
       </section>
 
-      <section class="panel">
-        <h2>🌊 氣象署海象浮標</h2>
+      <details class="panel" id="cwa-panel">
+        <summary>🌊 海象浮標（氣象署）— 需免費金鑰</summary>
         <p class="hint">
           中央氣象署開放資料「海象監測浮標」— 浪高、週期、海溫、風速即時觀測。
           到 <a href="https://opendata.cwa.gov.tw/" target="_blank" rel="noopener">CWA 氣象開放資料平臺</a>
           免費註冊取得授權碼（API Key），金鑰只存在你的瀏覽器（localStorage）。
+          填入授權碼後，浮標圖層才會出現。
         </p>
         <div class="row">
           <input type="password" id="cwa-key" placeholder="貼上 CWA 授權碼 (CWA-…)">
@@ -156,7 +158,7 @@
         </div>
         <div class="kv"><span>狀態</span><b id="cwa-status">未設定金鑰</b></div>
         <div class="kv"><span>更新於</span><b id="cwa-updated">–</b></div>
-      </section>
+      </details>
 
       <section class="panel">
         <h2>🌏 地震＆🛰️ 衛星</h2>

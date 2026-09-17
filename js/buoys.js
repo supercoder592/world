@@ -113,9 +113,12 @@
     init(map) {
       layer = L.layerGroup().addTo(map);
       const keyInput = document.getElementById('cwa-key');
+      const panel = document.getElementById('cwa-panel');
       const saved = CONAN.store.get(CONAN.config.storageKeys.cwaKey);
+      CONAN.ui.setSourceVisible('buoys', !!saved);
       if (saved) {
         keyInput.value = saved;
+        panel.open = true;
         start(saved);
       } else {
         setCwaStatus('未設定金鑰', 'warn');
@@ -125,10 +128,12 @@
         if (!key) {
           CONAN.store.del(CONAN.config.storageKeys.cwaKey);
           clearInterval(timer);
+          CONAN.ui.setSourceVisible('buoys', false);
           setCwaStatus('未設定金鑰', 'warn');
           return;
         }
         CONAN.store.set(CONAN.config.storageKeys.cwaKey, key);
+        CONAN.ui.setSourceVisible('buoys', true);
         start(key);
       });
     },

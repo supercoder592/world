@@ -132,9 +132,12 @@
       cleanTimer = setInterval(cleanup, 60000);
 
       const keyInput = document.getElementById('ais-key');
+      const panel = document.getElementById('ais-panel');
       const saved = CONAN.store.get(CONAN.config.storageKeys.aisKey);
+      CONAN.ui.setSourceVisible('ships', !!saved);
       if (saved) {
         keyInput.value = saved;
+        panel.open = true;
         connect(saved);
       } else {
         setAisStatus('未設定金鑰', 'warn');
@@ -145,10 +148,12 @@
           CONAN.store.del(CONAN.config.storageKeys.aisKey);
           currentKey = null;
           disconnect();
+          CONAN.ui.setSourceVisible('ships', false);
           setAisStatus('未設定金鑰', 'warn');
           return;
         }
         CONAN.store.set(CONAN.config.storageKeys.aisKey, key);
+        CONAN.ui.setSourceVisible('ships', true);
         connect(key);
       });
     },
