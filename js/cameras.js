@@ -413,7 +413,8 @@
 
       customList = loadCustom();
       refresh();
-      loadFreewayCctv();
+      // 國道最快回應，當作「台灣監視器」這一步跑過的訊號（開場畫面用）
+      loadFreewayCctv().finally(() => CONAN.ui.markLoaded('cameras'));
       autoLoadAll(); // 開站自動載入省道＋全部縣市，不需手動點按鈕
       initAddForm();
 

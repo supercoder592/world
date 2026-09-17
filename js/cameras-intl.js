@@ -331,7 +331,7 @@
     init() {
       buildPanel();
       // 全部來源各自獨立、平行載入，一個失敗不影響其他國家
-      Promise.allSettled(SOURCES.map(runSource));
+      Promise.allSettled(SOURCES.map(runSource)).then(() => CONAN.ui.markLoaded('camerasIntl'));
     },
   };
 })();

@@ -22,14 +22,52 @@
     showDiag((r && (r.message || String(r))) || '未處理的錯誤');
   });
 
+  /* ---------- 開場載入頁：追蹤各圖層第一次資料載入的真實進度 ---------- */
+  const splashEl = document.getElementById('splash');
+  const splashBar = document.getElementById('splash-bar');
+  const splashPct = document.getElementById('splash-pct');
+  const splashStatus = document.getElementById('splash-status');
+  const SPLASH_STEPS = ['map', 'aircraft', 'ships', 'cameras', 'camerasIntl', 'buoys', 'quakes', 'sats'];
+  const SPLASH_LABELS = {
+    map: '地球模型', aircraft: '飛機航班', ships: '船舶動態', cameras: '台灣監視器',
+    camerasIntl: '國際監視器', buoys: '海象浮標', quakes: '地震目錄', sats: '衛星軌道',
+  };
+  const splashDone = new Set();
+  let splashHidden = false;
+
+  function hideSplash() {
+    if (splashHidden || !splashEl) return;
+    splashHidden = true;
+    splashEl.classList.add('splash-out');
+    setTimeout(() => splashEl.remove(), 700);
+  }
+  /** 各模組第一次資料載入（不論成功或失敗）都呼叫一次，回報真實進度 */
+  function markLoaded(step) {
+    if (splashDone.has(step)) return;
+    splashDone.add(step);
+    const pct = Math.round((splashDone.size / SPLASH_STEPS.length) * 100);
+    if (splashBar) splashBar.style.width = `${pct}%`;
+    if (splashPct) splashPct.textContent = `${pct}%`;
+    if (splashStatus) splashStatus.textContent = `${SPLASH_LABELS[step] || step}　已連線`;
+    if (splashDone.size >= SPLASH_STEPS.length) {
+      if (splashStatus) splashStatus.textContent = '完成！';
+      setTimeout(hideSplash, 300);
+    }
+  }
+  // 保險：某個來源真的卡住也不讓開場畫面永遠蓋著網站，最多等 9 秒
+  setTimeout(hideSplash, 9000);
+
   // 地圖套件沒載進來（CDN 被擋）時，給出明確訊息而不是整頁空白
   if (typeof maplibregl === 'undefined') {
+    if (splashStatus) splashStatus.textContent = '地圖套件載入失敗';
+    hideSplash();
     showDiag('地圖套件（MapLibre CDN）載入失敗，請檢查網路或換個網路環境再試');
     return;
   }
 
   /* ---------- UI 輔助 ---------- */
   CONAN.ui = {
+    markLoaded,
     setStatus(kind, cls, count) {
       const chip = document.getElementById(`status-${kind}`);
       chip.classList.remove('ok', 'warn', 'err');
@@ -136,20 +174,23 @@
       paint: { 'line-color': '#4ea1ff', 'line-width': 1, 'line-opacity': 0.5, 'line-dasharray': [3, 3] },
     });
 
+    markLoaded('map');
+
     /* ---------- 模組啟動（個別失敗只影響自己的圖層） ---------- */
-    for (const [name, fn] of [
-      ['TDX', () => CONAN.tdx.initForm()],
-      ['飛機', () => CONAN.aircraft.init(map)],
-      ['船舶', () => CONAN.ships.init(map)],
-      ['監視器', () => CONAN.cameras.init(map)],
-      ['國際監視器', () => CONAN.camerasIntl.init()],
-      ['浮標', () => CONAN.buoys.init(map)],
-      ['地震', () => CONAN.quakes.init(map)],
-      ['衛星', () => CONAN.sats.init(map)],
+    for (const [name, step, fn] of [
+      ['TDX', null, () => CONAN.tdx.initForm()],
+      ['飛機', 'aircraft', () => CONAN.aircraft.init(map)],
+      ['船舶', 'ships', () => CONAN.ships.init(map)],
+      ['監視器', 'cameras', () => CONAN.cameras.init(map)],
+      ['國際監視器', 'camerasIntl', () => CONAN.camerasIntl.init()],
+      ['浮標', 'buoys', () => CONAN.buoys.init(map)],
+      ['地震', 'quakes', () => CONAN.quakes.init(map)],
+      ['衛星', 'sats', () => CONAN.sats.init(map)],
     ]) {
       try { fn(); } catch (e) {
         console.error(`[${name}]`, e);
         showDiag(`${name}圖層初始化失敗：${e.message}`);
+        if (step) markLoaded(step); // 初始化就掛了也算「跑過一輪」，開場畫面不要卡住
       }
     }
   });
