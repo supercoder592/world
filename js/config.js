@@ -86,6 +86,14 @@ CONAN.config = {
     // repo 裡的策展清單（raw.githubusercontent.com 對公開 repo 開放 CORS）
     tallinn: { url: 'https://raw.githubusercontent.com/bilawalsidhu/gods-eye-view/main/config/cctv_sources.tallinn.json', max: 1000 },
     warendorf: { url: 'https://raw.githubusercontent.com/bilawalsidhu/gods-eye-view/main/config/cctv_sources.warendorf.json', max: 100 },
+    // 德州 TxDOT：影像不是直接的圖片網址，是包在 JSON 裡的 base64 快照
+    // （見 cameras.js 的 'txdot' 類型），涵蓋全部 25 個轄區。
+    txdot: {
+      statusUrl: (d) => `https://its.txdot.gov/its/DistrictIts/GetCctvStatusListByDistrict?districtCode=${d}`,
+      snapshotUrl: 'https://its.txdot.gov/its/DistrictIts/GetCctvSnapshotByIcdId',
+      districts: ['ABL', 'AMA', 'ATL', 'AUS', 'BMT', 'BWD', 'BRY', 'CHS', 'CRP', 'DAL', 'ELP', 'FTW', 'HOU', 'LRD', 'LBB', 'LFK', 'ODA', 'PAR', 'PHR', 'SJT', 'SAT', 'TYL', 'WAC', 'WFS', 'YKM'],
+      max: 3000,
+    },
   },
 
   // 中央氣象署開放資料：海象監測浮標（O-B0075-001，需免費授權碼）
