@@ -81,13 +81,13 @@
       <section class="panel">
         <h2>📷 公開監視器</h2>
         <p class="hint">
-          自動載入高速公路局開放資料國道 CCTV（免金鑰）。省道與縣市 CCTV 走
+          開站自動載入國道、省道與全部 22 縣市 CCTV（免金鑰）。省道／縣市走
           <a href="https://tdx.transportdata.tw/" target="_blank" rel="noopener">交通部 TDX</a>
-          — 未填金鑰時以匿名模式試用（每日次數有限），填入免費金鑰可解除限制。
+          匿名模式，每日次數有限；填入免費金鑰可解除限制、避免額度用盡。
         </p>
         <div class="kv"><span>國道 CCTV</span><b id="cctv-status">載入中…</b></div>
         <div class="kv"><span>省道 CCTV</span><b id="thb-status">未載入</b></div>
-        <button id="thb-load" class="wide">載入省道 CCTV</button>
+        <button id="thb-load" class="wide">重新整理省道 CCTV</button>
         <div class="row">
           <select id="city-select">
             <option value="Taipei">臺北市</option>
@@ -115,7 +115,7 @@
           </select>
           <button id="city-load">載入</button>
         </div>
-        <button id="city-load-all" class="wide">一鍵載入全部 22 縣市</button>
+        <button id="city-load-all" class="wide">重新整理全部 22 縣市</button>
         <div class="kv"><span>縣市 CCTV</span><b id="city-status">未載入</b></div>
         <details>
           <summary>🔑 TDX 金鑰（選填）</summary>
@@ -193,6 +193,17 @@
     </aside>
 
     <div id="map"></div>
+  </div>
+
+  <!-- 站內預覽視窗：外部監視器頁面在此開啟，不用跳分頁離開地圖 -->
+  <div id="lightbox" hidden>
+    <div id="lightbox-bar">
+      <span id="lightbox-title">預覽</span>
+      <a id="lightbox-newtab" href="#" target="_blank" rel="noopener">在新分頁開啟 ↗</a>
+      <button id="lightbox-close" title="關閉">✕</button>
+    </div>
+    <iframe id="lightbox-frame" title="監視器來源預覽" referrerpolicy="no-referrer"></iframe>
+    <p id="lightbox-hint" class="hint">若上方空白，代表該網站禁止被其他網站內嵌顯示（伺服器安全政策），請改用「在新分頁開啟」。</p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.js"></script>

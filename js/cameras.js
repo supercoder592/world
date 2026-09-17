@@ -38,16 +38,17 @@
         <p class="hint cam-fallback" id="cam-fallback" hidden>⚠️ 此來源阻擋內嵌，請點下方「開啟原始來源」觀看。</p>`;
     } else if (type === 'hls') {
       media = `<video class="cam-view" id="cam-live" muted autoplay playsinline></video>
-        <p class="hint cam-fallback" id="cam-fallback" hidden>⚠️ 此來源阻擋內嵌，請點下方「開啟原始來源」觀看。</p>`;
+        <p class="hint cam-fallback" id="cam-fallback" hidden>⚠️ 此來源阻擋內嵌，請點下方「預覽來源」。</p>`;
     } else {
-      media = `<p class="hint">此監視器為外部網頁，點下方連結開啟。</p>`;
+      media = `<p class="hint">此監視器為外部網頁，點下方「預覽來源」在站內開啟。</p>`;
     }
     return `<div class="popup">
       <h3>📷 ${cam.name}</h3>
       ${cam.desc ? `<div class="kv"><span>位置</span><b>${cam.desc}</b></div>` : ''}
       ${media}
       <div class="cam-actions">
-        <a href="${cam.url}" target="_blank" rel="noopener">開啟原始來源 ↗</a>
+        <a href="#" data-preview="${cam.url}" data-title="${cam.name}">🔍 預覽來源</a>
+        <a href="${cam.url}" target="_blank" rel="noopener">另開分頁 ↗</a>
         ${cam.custom ? `<a href="#" data-del="${cam.id}">🗑 刪除</a>` : ''}
       </div>
     </div>`;
@@ -102,6 +103,13 @@
           showFallback();
         }
       }
+    }
+    const preview = popupEl.querySelector('[data-preview]');
+    if (preview) {
+      preview.addEventListener('click', (e) => {
+        e.preventDefault();
+        CONAN.ui.openLightbox(preview.dataset.preview, preview.dataset.title);
+      });
     }
     const del = popupEl.querySelector('[data-del]');
     if (del) {
@@ -258,7 +266,7 @@
   /** 依序載入 22 縣市（不平行送出，避免匿名模式一次打爆額度／被限流） */
   async function loadAllCities(options, btn) {
     const statusEl = document.getElementById('city-status');
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
     let total = 0, done = 0;
     for (const opt of options) {
       done++;
@@ -266,7 +274,15 @@
       total += await loadCity(opt.value, opt.label);
     }
     statusEl.textContent = `全部 22 縣市已處理，共新增 ${total} 支`;
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
+  }
+
+  /** 一開站就自動依序載入省道與全部縣市，不需手動點按鈕 */
+  async function autoLoadAll() {
+    await loadThb();
+    const sel = document.getElementById('city-select');
+    const options = [...sel.options].map((o) => ({ value: o.value, label: o.textContent }));
+    await loadAllCities(options, document.getElementById('city-load-all'));
   }
 
   /* ---------- 使用者自訂監視器 ---------- */
@@ -393,6 +409,7 @@
       customList = loadCustom();
       refresh();
       loadFreewayCctv();
+      autoLoadAll(); // 開站自動載入省道＋全部縣市，不需手動點按鈕
       initAddForm();
 
       document.getElementById('thb-load').addEventListener('click', loadThb);
