@@ -132,6 +132,7 @@
       ['飛機', () => CONAN.aircraft.init(map)],
       ['船舶', () => CONAN.ships.init(map)],
       ['監視器', () => CONAN.cameras.init(map)],
+      ['國際監視器', () => CONAN.camerasIntl.init()],
       ['浮標', () => CONAN.buoys.init(map)],
       ['地震', () => CONAN.quakes.init(map)],
       ['衛星', () => CONAN.sats.init(map)],
