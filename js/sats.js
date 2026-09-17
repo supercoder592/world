@@ -6,6 +6,7 @@
   const markers = new Map(); // name -> { marker, el, info }
   let map = null;
   let visible = true;
+  let cullUpdate = null; // 隱藏跑到地球背面的標記（見 gl.js wireHemisphereCulling）
 
   function setStatus(text, cls) {
     document.getElementById('sat-status').textContent = text;
@@ -89,6 +90,7 @@
       }
     }
     setStatus(`追蹤 ${satrecs.length} 枚，頭頂 ${markers.size} 枚`, 'ok');
+    if (cullUpdate) cullUpdate();
   }
 
   async function load() {
@@ -115,6 +117,9 @@
   CONAN.sats = {
     init(m) {
       map = m;
+      cullUpdate = CONAN.gl.wireHemisphereCulling(map, () =>
+        [...markers.values()].map((mk) => ({ lat: mk.info.lat, lon: mk.info.lon, marker: mk.marker }))
+      );
       load();
     },
     setVisible(on) {
@@ -123,6 +128,7 @@
         if (on && !m.marker) m.marker = CONAN.gl.addMarker(map, m.info.lat, m.info.lon, m.el);
         else if (!on && m.marker) { m.marker.remove(); m.marker = null; }
       }
+      if (cullUpdate) cullUpdate();
     },
   };
 })();

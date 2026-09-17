@@ -7,6 +7,7 @@
   let ws = null;
   let reconnectTimer = null;
   let currentKey = null;
+  let cullUpdate = null; // 隱藏跑到地球背面的標記（見 gl.js wireHemisphereCulling）
 
   function shipSvg(cog) {
     const rot = Number.isFinite(cog) && cog < 360 ? cog : 0;
@@ -125,11 +126,13 @@
       }
     }
     if (ws) CONAN.ui.setStatus('ships', 'ok', ships.size);
+    if (cullUpdate) cullUpdate();
   }
 
   CONAN.ships = {
     init(m) {
       map = m;
+      cullUpdate = CONAN.gl.wireHemisphereCulling(map, () => ships.values());
       setInterval(cleanup, 60000);
 
       const keyInput = document.getElementById('ais-key');
@@ -168,6 +171,7 @@
           s.marker = null;
         }
       }
+      if (cullUpdate) cullUpdate();
     },
   };
 })();

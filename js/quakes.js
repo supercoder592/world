@@ -5,6 +5,7 @@
   let visible = true;
   let items = []; // { marker, el, lat, lon }
   let count = 0;
+  let cullUpdate = null; // 隱藏跑到地球背面的標記（見 gl.js wireHemisphereCulling）
 
   function magColor(m) {
     if (m >= 6) return '#f85149';
@@ -57,6 +58,7 @@
       }
       statusEl.textContent = `近 7 天 ${count} 起`;
       CONAN.ui.setStatus('quakes', 'ok', count);
+      if (cullUpdate) cullUpdate();
     } catch (e) {
       statusEl.textContent = e.message || '載入失敗';
       CONAN.ui.setStatus('quakes', 'err', count);
@@ -66,6 +68,7 @@
   CONAN.quakes = {
     init(m) {
       map = m;
+      cullUpdate = CONAN.gl.wireHemisphereCulling(map, () => items);
       load();
       setInterval(load, cfg.refreshMs);
     },
@@ -75,6 +78,7 @@
         if (on && !it.marker) it.marker = CONAN.gl.addMarker(map, it.lat, it.lon, it.el);
         else if (!on && it.marker) { it.marker.remove(); it.marker = null; }
       }
+      if (cullUpdate) cullUpdate();
     },
   };
 })();
