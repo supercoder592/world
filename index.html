@@ -84,7 +84,7 @@
       </details>
 
       <section class="panel">
-        <h2>📷 公開監視器</h2>
+        <h2>📷 公開監視器 — 🇹🇼 台灣</h2>
         <p class="hint">
           開站自動載入國道、省道與全部 22 縣市 CCTV（免金鑰）。省道／縣市走
           <a href="https://tdx.transportdata.tw/" target="_blank" rel="noopener">交通部 TDX</a>
@@ -145,6 +145,15 @@
           </div>
         </details>
       </section>
+
+      <details class="panel" id="intl-cctv-panel" open>
+        <summary>🌍 國際監視器（10 國/地區，開站自動載入）</summary>
+        <p class="hint">
+          各國政府開放資料，皆免金鑰。台灣以外沒有統一的全球監視器資料庫，
+          只能逐一串接格式互異的開放資料，之後可再擴充其他國家。
+        </p>
+        <div id="intl-cctv-list"></div>
+      </details>
 
       <details class="panel" id="cwa-panel">
         <summary>🌊 海象浮標（氣象署）— 需免費金鑰</summary>
@@ -221,6 +230,7 @@
   <script src="js/aircraft.js"></script>
   <script src="js/ships.js"></script>
   <script src="js/cameras.js"></script>
+  <script src="js/cameras-intl.js"></script>
   <script src="js/buoys.js"></script>
   <script src="js/quakes.js"></script>
   <script src="js/sats.js"></script>

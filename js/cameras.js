@@ -140,9 +140,14 @@
   }
 
   /** 加入一支監視器（不重整資料源；批次加完請自行呼叫 refresh）。回傳是否成功。 */
-  function addCamera(cam) {
+  /** opts.global：國際監視器來源用，跳過台灣範圍濾網，只做基本座標合理性檢查 */
+  function addCamera(cam, opts = {}) {
     if (!Number.isFinite(cam.lat) || !Number.isFinite(cam.lon)) return false;
-    if (!inBounds(cam.lat, cam.lon)) return false; // 過濾開放資料的壞座標（避免飄到非洲）
+    if (opts.global) {
+      if (Math.abs(cam.lat) > 90 || Math.abs(cam.lon) > 180) return false;
+    } else if (!inBounds(cam.lat, cam.lon)) {
+      return false; // 過濾開放資料的壞座標（避免飄到非洲）
+    }
     if (cams.has(cam.id)) return false;
     cams.set(cam.id, cam);
     return true;
@@ -429,6 +434,13 @@
         map.setLayoutProperty(layerId, 'visibility', v);
       }
       if (!on) stopViewers();
+    },
+    /** 供 cameras-intl.js（國際監視器來源）加點用：跳過台灣範圍濾網 */
+    addExternal(cam) {
+      return addCamera(cam, { global: true });
+    },
+    refresh() {
+      refresh();
     },
   };
 })();
