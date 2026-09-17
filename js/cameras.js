@@ -65,6 +65,19 @@
         if (fallback) fallback.hidden = false;
       };
       el.onerror = showFallback;
+      // 有些伺服器擋內嵌時不回錯誤，而是回一張極小的佔位圖（例如 1x1 像素）或
+      // 需登入的錯誤頁被誤判為圖檔——img 標籤視為「載入成功」但畫面其實是黑的、
+      // 什麼都看不到。用實際像素尺寸抓出這種偽成功。
+      el.onload = () => {
+        if (el.naturalWidth > 0 && el.naturalWidth < 20 && el.naturalHeight < 20) showFallback();
+      };
+      // 逾時仍沒有任何回應（連 onload/onerror 都沒觸發）：多半是伺服器掛起或被擋在
+      // 網路層，同樣退回備援訊息，不留著空白轉圈
+      const loadTimeout = setTimeout(() => {
+        if (!el.hidden && !el.complete) showFallback();
+      }, 12000);
+      el.addEventListener('load', () => clearTimeout(loadTimeout), { once: true });
+      el.addEventListener('error', () => clearTimeout(loadTimeout), { once: true });
 
       if (type === 'img') {
         const refresh = () => {
@@ -235,9 +248,25 @@
       const data = await CONAN.tdx.fetchJson(CONAN.config.tdx.cityCctvUrl(city));
       const added = addMotcItems(extractTdxItems(data), `city-${city}`, label);
       statusEl.textContent = added > 0 ? `${label}：已載入 ${added} 支` : `${label}：無資料（該縣市未提供）`;
+      return added;
     } catch (e) {
       statusEl.textContent = `${label}：${e.message || '載入失敗'}`;
+      return 0;
     }
+  }
+
+  /** 依序載入 22 縣市（不平行送出，避免匿名模式一次打爆額度／被限流） */
+  async function loadAllCities(options, btn) {
+    const statusEl = document.getElementById('city-status');
+    btn.disabled = true;
+    let total = 0, done = 0;
+    for (const opt of options) {
+      done++;
+      statusEl.textContent = `(${done}/${options.length}) ${opt.label} 載入中…`;
+      total += await loadCity(opt.value, opt.label);
+    }
+    statusEl.textContent = `全部 22 縣市已處理，共新增 ${total} 支`;
+    btn.disabled = false;
   }
 
   /* ---------- 使用者自訂監視器 ---------- */
@@ -370,6 +399,11 @@
       document.getElementById('city-load').addEventListener('click', () => {
         const sel = document.getElementById('city-select');
         loadCity(sel.value, sel.options[sel.selectedIndex].textContent);
+      });
+      document.getElementById('city-load-all').addEventListener('click', (e) => {
+        const sel = document.getElementById('city-select');
+        const options = [...sel.options].map((o) => ({ value: o.value, label: o.textContent }));
+        loadAllCities(options, e.target);
       });
     },
     setVisible(on) {
