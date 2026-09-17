@@ -295,9 +295,48 @@
     return added;
   }
 
+  /* ---------- 德州（美國）：TxDOT ITS，全部 25 個轄區平行抓取 ---------- */
+  async function fetchTxdot() {
+    const c = cfg.txdot;
+    const settled = await Promise.allSettled(c.districts.map(async (d) => {
+      const payload = await fetchJson(c.statusUrl(d), { Accept: 'application/json' });
+      return { d, payload };
+    }));
+    let added = 0;
+    outer:
+    for (const r of settled) {
+      if (r.status !== 'fulfilled') continue;
+      const byRoadway = r.value.payload?.roadwayCctvStatuses;
+      if (!byRoadway || typeof byRoadway !== 'object') continue;
+      const seen = new Set();
+      for (const rows of Object.values(byRoadway)) {
+        if (!Array.isArray(rows)) continue;
+        for (const row of rows) {
+          if (added >= c.max) break outer;
+          if (String(row?.statusDescription || '') !== 'Device Online') continue;
+          if (row?.hasSnapshot === false) continue;
+          const lat = typeof row?.latitude === 'number' ? row.latitude : NaN;
+          const lon = typeof row?.longitude === 'number' ? row.longitude : NaN;
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+          const icdId = String(row?.icd_Id || '').trim();
+          if (!icdId || seen.has(icdId)) continue;
+          seen.add(icdId);
+          const name = String(row?.name || icdId).trim();
+          const snapUrl = `${c.snapshotUrl}?icdId=${encodeURIComponent(icdId)}&districtCode=${encodeURIComponent(r.value.d)}`;
+          if (CONAN.cameras.addExternal({
+            id: `txdot-${r.value.d}-${icdId}`, name: `📍 ${name}`, desc: `TxDOT ${r.value.d}（美國德州）`,
+            lat, lon, url: snapUrl, kind: 'txdot',
+          })) added++;
+        }
+      }
+    }
+    return added;
+  }
+
   const SOURCES = [
     { key: 'austin', label: 'Austin, TX（美國）', fetch: fetchAustin },
     { key: 'caltrans', label: '加州（美國）', fetch: fetchCaltrans },
+    { key: 'txdot', label: '德州（美國）', fetch: fetchTxdot },
     { key: 'tfl', label: '倫敦（英國）', fetch: fetchTfl },
     { key: 'ontario', label: '安大略（加拿大）', fetch: fetchOntario },
     { key: 'fintraffic', label: '芬蘭', fetch: fetchFintraffic },

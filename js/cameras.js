@@ -13,8 +13,9 @@
     return lat >= b.south - p && lat <= b.north + p && lon >= b.west - p && lon <= b.east + p;
   }
 
-  function detectType(url) {
-    const u = (url || '').toLowerCase();
+  function detectType(cam) {
+    if (cam.kind === 'txdot') return 'txdot'; // 快照包在 JSON 裡（base64），不是直接的圖片網址
+    const u = (cam.url || '').toLowerCase();
     if (u.includes('.m3u8')) return 'hls';
     if (u.startsWith('rtsp')) return 'link';                     // 瀏覽器播不了 RTSP
     if (u.includes('mjpg') || u.includes('mjpeg')) return 'mjpeg'; // 動態串流：設一次 src 即可
@@ -30,9 +31,9 @@
   }
 
   function popupHtml(cam) {
-    const type = detectType(cam.url);
+    const type = detectType(cam);
     let media = '';
-    if (type === 'img' || type === 'mjpeg' || type === 'tryimg') {
+    if (type === 'img' || type === 'mjpeg' || type === 'tryimg' || type === 'txdot') {
       // referrerpolicy 是關鍵：多數政府影像主機會拒絕帶外站 Referer 的請求
       media = `<img class="cam-view" id="cam-live" alt="${cam.name}" referrerpolicy="no-referrer" src="">
         <p class="hint cam-fallback" id="cam-fallback" hidden>⚠️ 此來源阻擋內嵌，請點下方「開啟原始來源」觀看。</p>`;
@@ -56,7 +57,7 @@
 
   function wirePopup(cam, popupEl) {
     stopViewers();
-    const type = detectType(cam.url);
+    const type = detectType(cam);
     const el = popupEl.querySelector('#cam-live');
     if (el) {
       const fallback = popupEl.querySelector('#cam-fallback');
@@ -91,6 +92,21 @@
       } else if (type === 'mjpeg' || type === 'tryimg') {
         // MJPEG 是連續串流，設定一次 src 讓它自己播，不需輪詢重載
         el.src = cam.url;
+      } else if (type === 'txdot') {
+        // TxDOT 的快照不是圖片網址，是 JSON 裡包一段 base64 JPEG，要自己抓、自己解
+        const refresh = async () => {
+          try {
+            const res = await fetch(cam.url, { signal: CONAN.timeoutSignal(8000) });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (data && data.snippet) el.src = `data:image/jpeg;base64,${data.snippet}`;
+            else showFallback();
+          } catch {
+            showFallback();
+          }
+        };
+        refresh();
+        activeSnapshotTimer = setInterval(refresh, cfg.snapshotRefreshMs);
       } else if (type === 'hls') {
         if (window.Hls && Hls.isSupported()) {
           activeHls = new Hls({ maxBufferLength: 10 });
