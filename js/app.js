@@ -38,6 +38,13 @@
         document.getElementById(`count-${kind}`).textContent = count.toLocaleString();
       }
     },
+    /** 需要金鑰的圖層：沒設金鑰就把狀態燈與圖層開關整個藏起來，不干擾畫面 */
+    setSourceVisible(kind, on) {
+      const chip = document.getElementById(`status-${kind}`);
+      if (chip) chip.style.display = on ? '' : 'none';
+      const toggle = document.getElementById(`toggle-${kind}`);
+      if (toggle) toggle.style.display = on ? '' : 'none';
+    },
   };
 
   /* ---------- 地圖 ---------- */

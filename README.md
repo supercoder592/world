@@ -32,6 +32,18 @@ python3 -m http.server 8080
 
 或啟用 GitHub Pages（Settings → Pages → Source 選 **GitHub Actions**），內附的 workflow 會自動部署。
 
+## 🔑 需要哪些金鑰？
+
+**完全不用金鑰就有**：飛機、國道 CCTV、地震、頭頂衛星、地圖底圖。
+
+以下三個是「選配」，全部免費，各自解鎖一個圖層或額度。沒填金鑰時，對應的圖層與狀態燈會自動隱藏：
+
+| 金鑰 | 解鎖 | 去哪拿 |
+|------|------|--------|
+| AISStream API Key | 🚢 船舶即時動態 | [aisstream.io](https://aisstream.io) 註冊 → 建立 API Key |
+| CWA 授權碼（`CWA-` 開頭） | 🌊 海象浮標 | [opendata.cwa.gov.tw](https://opendata.cwa.gov.tw/) 註冊 → 會員資訊 → 取得授權碼 |
+| TDX Client ID + Secret | 📷 省道／縣市 CCTV 額度（匿名模式每日次數有限） | [tdx.transportdata.tw](https://tdx.transportdata.tw/register) 註冊 → 資料服務 → 會員專區 → API 金鑰 |
+
 ### 啟用船舶圖層
 
 1. 到 [aisstream.io](https://aisstream.io) 免費註冊並建立 API Key
