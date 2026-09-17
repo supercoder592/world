@@ -2,6 +2,32 @@
 (function () {
   const cfg = CONAN.config;
 
+  /* ---------- 錯誤診斷條：任何未預期錯誤都顯示在畫面上，方便回報 ---------- */
+  function showDiag(msg) {
+    let el = document.getElementById('diag');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'diag';
+      document.body.appendChild(el);
+    }
+    el.textContent = `⚠️ ${msg}（點一下關閉）`;
+    el.style.display = 'block';
+    el.onclick = () => { el.style.display = 'none'; };
+  }
+  window.addEventListener('error', (e) => {
+    showDiag(e.message || '未知錯誤');
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = e.reason;
+    showDiag((r && (r.message || String(r))) || '未處理的錯誤');
+  });
+
+  // 地圖套件沒載進來（CDN 被擋）時，給出明確訊息而不是整頁空白
+  if (typeof L === 'undefined') {
+    showDiag('地圖套件（Leaflet CDN）載入失敗，請檢查網路或換個網路環境再試');
+    return;
+  }
+
   /* ---------- UI 輔助 ---------- */
   CONAN.ui = {
     setStatus(kind, cls, count) {
@@ -43,11 +69,19 @@
   L.control.scale({ metric: true, imperial: false }).addTo(map);
 
   /* ---------- 模組啟動 ---------- */
-  CONAN.tdx.initForm();
-  CONAN.aircraft.init(map);
-  CONAN.ships.init(map);
-  CONAN.cameras.init(map);
-  CONAN.buoys.init(map);
+  // 個別模組初始化失敗時只影響自己的圖層，不拖垮整個頁面
+  for (const [name, fn] of [
+    ['TDX', () => CONAN.tdx.initForm()],
+    ['飛機', () => CONAN.aircraft.init(map)],
+    ['船舶', () => CONAN.ships.init(map)],
+    ['監視器', () => CONAN.cameras.init(map)],
+    ['浮標', () => CONAN.buoys.init(map)],
+  ]) {
+    try { fn(); } catch (e) {
+      console.error(`[${name}]`, e);
+      showDiag(`${name}圖層初始化失敗：${e.message}`);
+    }
+  }
 
   /* ---------- 圖層開關 ---------- */
   document.getElementById('layer-aircraft').addEventListener('change', (e) => {

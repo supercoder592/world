@@ -4,14 +4,14 @@
   let token = null;      // { value, expiresAt }
 
   function loadCreds() {
-    try { return JSON.parse(localStorage.getItem(CONAN.config.storageKeys.tdxCreds)) || null; } catch { return null; }
+    try { return JSON.parse(CONAN.store.get(CONAN.config.storageKeys.tdxCreds)) || null; } catch { return null; }
   }
 
   function saveCreds(id, secret) {
     if (id && secret) {
-      localStorage.setItem(CONAN.config.storageKeys.tdxCreds, JSON.stringify({ id, secret }));
+      CONAN.store.set(CONAN.config.storageKeys.tdxCreds, JSON.stringify({ id, secret }));
     } else {
-      localStorage.removeItem(CONAN.config.storageKeys.tdxCreds);
+      CONAN.store.del(CONAN.config.storageKeys.tdxCreds);
     }
     token = null; // 金鑰換了，作廢舊 token
   }
@@ -27,7 +27,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
-      signal: AbortSignal.timeout(10000),
+      signal: CONAN.timeoutSignal(10000),
     });
     if (!res.ok) throw new Error(`TDX 金鑰驗證失敗（HTTP ${res.status}）`);
     const data = await res.json();
@@ -47,7 +47,7 @@
         console.warn('[TDX]', e.message);
       }
     }
-    const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
+    const res = await fetch(url, { headers, signal: CONAN.timeoutSignal(20000) });
     if (res.status === 429) throw new Error('匿名額度已用盡，請填入 TDX 金鑰');
     if (res.status === 401) throw new Error('TDX 金鑰無效或未授權');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
