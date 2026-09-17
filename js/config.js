@@ -66,24 +66,26 @@ CONAN.config = {
 
   // 國際監視器（各國政府開放資料，皆免金鑰）。座標、快照網址直接取自各官方
   // API；不做姿態/朝向推算（本站不需要 3D 相機姿態，只需要點位＋影像）。
-  // 上限依各來源資料量斟酌，避免單一城市（尤其安大略/加州）洗版全圖。
+  // 監視器圖層是原生 GL 聚合圖層渲染（不是逐一 DOM 元素），上萬個點也不影響
+  // 效能，所以 max 只當「防禦性上限」（擋掉來源異常暴量），不是真的限縮範圍
+  // ——每個來源都設得比實際資料量大，盡量拿到該來源「全部」的監視器。
   intlCctv: {
-    austin: { url: 'https://data.austintexas.gov/api/views/b4k4-adkb/rows.json?accessType=DOWNLOAD', max: 250 },
+    austin: { url: 'https://data.austintexas.gov/api/views/b4k4-adkb/rows.json?accessType=DOWNLOAD', max: 2000 },
     caltrans: {
       url: (d) => `https://cwwp2.dot.ca.gov/data/d${d}/cctv/cctvStatusD${String(d).padStart(2, '0')}.json`,
-      districts: [4, 7, 11, 3], // 舊金山灣區／洛杉磯／聖地牙哥／沙加緬度
-      max: 300,
+      districts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], // 加州全部 12 個轄區
+      max: 5000,
     },
-    tfl: { url: 'https://api.tfl.gov.uk/Place/Type/JamCam', imageOrigin: 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/', max: 250 },
-    ontario: { url: 'https://511on.ca/api/v2/get/cameras?format=json&lang=en', imageOrigin: 'https://511on.ca/map/Cctv/', max: 400 },
-    fintraffic: { url: 'https://tie.digitraffic.fi/api/weathercam/v1/stations', imageOrigin: 'https://weathercam.digitraffic.fi/', digitrafficUser: 'conan-pacific-buoy', max: 300 },
-    drivebc: { url: 'https://www.drivebc.ca/api/webcams/', imageUrl: (id) => `https://www.drivebc.ca/images/${id}.jpg`, max: 250 },
-    nsw: { url: 'https://data.livetraffic.com/cameras/traffic-cam.json', imageOrigin: 'https://webcams.transport.nsw.gov.au/', max: 250 },
-    calgary: { url: 'https://data.calgary.ca/resource/k7p9-kppz.json?$limit=500', imageOrigin: 'https://trafficcam.calgary.ca/', max: 220 },
+    tfl: { url: 'https://api.tfl.gov.uk/Place/Type/JamCam', imageOrigin: 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/', max: 3000 },
+    ontario: { url: 'https://511on.ca/api/v2/get/cameras?format=json&lang=en', imageOrigin: 'https://511on.ca/map/Cctv/', max: 3000 },
+    fintraffic: { url: 'https://tie.digitraffic.fi/api/weathercam/v1/stations', imageOrigin: 'https://weathercam.digitraffic.fi/', digitrafficUser: 'conan-pacific-buoy', max: 3000 },
+    drivebc: { url: 'https://www.drivebc.ca/api/webcams/', imageUrl: (id) => `https://www.drivebc.ca/images/${id}.jpg`, max: 2000 },
+    nsw: { url: 'https://data.livetraffic.com/cameras/traffic-cam.json', imageOrigin: 'https://webcams.transport.nsw.gov.au/', max: 2000 },
+    calgary: { url: 'https://data.calgary.ca/resource/k7p9-kppz.json?$limit=2000', imageOrigin: 'https://trafficcam.calgary.ca/', max: 2000 },
     // 塔林（愛沙尼亞）／瓦倫多夫（德國）：直接取用 God's Eye View 專案公開
     // repo 裡的策展清單（raw.githubusercontent.com 對公開 repo 開放 CORS）
-    tallinn: { url: 'https://raw.githubusercontent.com/bilawalsidhu/gods-eye-view/main/config/cctv_sources.tallinn.json', max: 260 },
-    warendorf: { url: 'https://raw.githubusercontent.com/bilawalsidhu/gods-eye-view/main/config/cctv_sources.warendorf.json', max: 20 },
+    tallinn: { url: 'https://raw.githubusercontent.com/bilawalsidhu/gods-eye-view/main/config/cctv_sources.tallinn.json', max: 1000 },
+    warendorf: { url: 'https://raw.githubusercontent.com/bilawalsidhu/gods-eye-view/main/config/cctv_sources.warendorf.json', max: 100 },
   },
 
   // 中央氣象署開放資料：海象監測浮標（O-B0075-001，需免費授權碼）
