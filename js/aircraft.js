@@ -11,6 +11,7 @@
   let queryCenter = CONAN.config.center; // [lat, lon]，隨地圖視野更新
   let queryRadiusNm = cfg.maxRadiusNm;
   let moveTimer = null;
+  let cullUpdate = null; // 隱藏跑到地球背面的標記（見 gl.js wireHemisphereCulling）
 
   function altColor(alt) {
     if (alt == null || alt === 'ground') return '#9aa5b1';
@@ -89,6 +90,7 @@
         CONAN.ui.setStatus('aircraft', 'ok', planes.size);
         document.getElementById('adsb-source').textContent = src.name;
         document.getElementById('adsb-updated').textContent = new Date().toLocaleTimeString('zh-TW');
+        if (cullUpdate) cullUpdate();
         return;
       } catch (e) {
         const reason = e.name === 'TimeoutError' ? '逾時'
@@ -176,6 +178,9 @@
         source: 'plane-trails',
         paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.5 },
       });
+      cullUpdate = CONAN.gl.wireHemisphereCulling(map, () =>
+        [...planes.values()].map((p) => ({ lat: p.data.lat, lon: p.data.lon, marker: p.marker }))
+      );
       updateQueryFromView();
       poll();
       setInterval(poll, cfg.intervalMs);
@@ -198,6 +203,7 @@
           p.marker = null;
         }
       }
+      if (cullUpdate) cullUpdate();
       updateTrails();
     },
     setTrails(on) {
