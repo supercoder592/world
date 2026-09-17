@@ -100,6 +100,16 @@
   });
   map.on('style.load', () => {
     map.setProjection({ type: 'globe' });
+    // 大氣層/太空背景：預設的霧化偏淡，球體邊緣看起來像半透明。改成暗色大氣
+    // ＋星空，縮小成地球時才有實體感，符合夜間偵探風的主題色調。
+    map.setFog({
+      range: [0.5, 10],
+      color: 'rgba(10, 16, 26, 0.9)',
+      'high-color': 'rgba(20, 30, 55, 1)',
+      'space-color': 'rgba(3, 5, 10, 1)',
+      'horizon-blend': 0.1,
+      'star-intensity': 0.35,
+    });
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');

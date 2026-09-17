@@ -93,6 +93,8 @@ html, body {
 .kv { display: flex; justify-content: space-between; font-size: 12.5px; padding: 3px 0; }
 .kv span { color: var(--muted); }
 .kv b { color: var(--text); font-weight: 600; max-width: 60%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 飛機資料源全部失敗時，訊息會列出每個來源個別的失敗原因，需要換行完整顯示 */
+#adsb-source { white-space: normal; text-overflow: clip; }
 
 .row { display: flex; gap: 6px; margin: 6px 0; }
 .form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
