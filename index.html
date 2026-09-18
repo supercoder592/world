@@ -50,6 +50,7 @@
       </span>
       <span class="clock" id="clock">--:--:--</span>
     </div>
+    <button id="search-open" title="搜尋地點／監視器">🔍 搜尋</button>
     <button id="home-taiwan" title="回到台灣視野">🏠 台灣</button>
     <button id="sidebar-toggle" title="開關事件簿">☰ 事件簿</button>
   </header>
@@ -232,6 +233,18 @@
     <p id="lightbox-hint" class="hint">若上方空白，代表該網站禁止被其他網站內嵌顯示（伺服器安全政策），請改用「在新分頁開啟」。</p>
   </div>
 
+  <!-- 搜尋：地點（Nominatim/OSM 免金鑰地理編碼）＋ 已載入的監視器名稱 -->
+  <div id="search-overlay" hidden>
+    <div id="search-panel">
+      <div id="search-bar">
+        <span id="search-bar-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="搜尋地點、城市、監視器名稱…" autocomplete="off">
+        <button id="search-close" title="關閉">✕</button>
+      </div>
+      <div id="search-results"></div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.js"></script>
   <script>window.maplibregl || document.write('<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"><\/script>')</script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
@@ -246,6 +259,7 @@
   <script src="js/buoys.js"></script>
   <script src="js/quakes.js"></script>
   <script src="js/sats.js"></script>
+  <script src="js/search.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

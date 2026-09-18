@@ -23,6 +23,53 @@ html, body {
   font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
 }
 
+/* ---------- 搜尋覆蓋層 ---------- */
+#search-overlay {
+  position: fixed; inset: 0; z-index: 2700;
+  background: rgba(5, 7, 12, .88);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 60px 16px;
+}
+#search-panel {
+  width: 100%; max-width: 560px;
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+  max-height: calc(100vh - 120px);
+  display: flex; flex-direction: column;
+}
+#search-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+#search-bar-icon { font-size: 16px; }
+#search-input {
+  flex: 1; background: transparent; border: none; color: var(--text);
+  font-size: 15px; padding: 4px 0;
+}
+#search-input:focus { outline: none; }
+#search-bar #search-close {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 16px; cursor: pointer; padding: 2px 6px;
+}
+#search-bar #search-close:hover { color: var(--err); }
+#search-results { overflow-y: auto; padding: 6px; }
+.search-group {
+  font-size: 11px; color: var(--muted); letter-spacing: 1px;
+  padding: 8px 10px 4px;
+}
+.search-item {
+  display: flex; flex-direction: column; align-items: flex-start;
+  width: 100%; text-align: left;
+  background: transparent; border: none; border-radius: 8px;
+  color: var(--text); padding: 8px 10px; cursor: pointer; font-size: 13.5px;
+}
+.search-item:hover { background: var(--panel); }
+.search-item-name { color: var(--text); }
+.search-item-desc { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.search-empty { padding: 14px 10px; margin: 0; }
+
 /* ---------- 開場載入頁（純黑，極簡） ---------- */
 #splash {
   position: fixed; inset: 0; z-index: 2600; /* 低於錯誤診斷條（3000），載入失敗時訊息仍看得到 */
@@ -81,12 +128,12 @@ html, body {
 
 .clock { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
 
-#sidebar-toggle, #home-taiwan {
+#sidebar-toggle, #home-taiwan, #search-open {
   background: var(--panel); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px;
   padding: 6px 12px; cursor: pointer; font-size: 14px;
 }
-#sidebar-toggle:hover, #home-taiwan:hover { border-color: var(--accent); }
+#sidebar-toggle:hover, #home-taiwan:hover, #search-open:hover { border-color: var(--accent); }
 
 /* ---------- 版面 ---------- */
 #main { display: flex; height: calc(100% - 58px); }

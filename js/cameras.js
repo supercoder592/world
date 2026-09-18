@@ -459,5 +459,19 @@
     refresh() {
       refresh();
     },
+    /** 名稱/位置關鍵字搜尋，供搜尋功能用（台灣＋國際監視器共用同一份資料） */
+    search(query, limit = 8) {
+      const q = query.trim().toLowerCase();
+      if (!q) return [];
+      const out = [];
+      for (const cam of cams.values()) {
+        const hay = `${cam.name} ${cam.desc || ''}`.toLowerCase();
+        if (hay.includes(q)) {
+          out.push({ id: cam.id, name: cam.name, desc: cam.desc, lat: cam.lat, lon: cam.lon });
+          if (out.length >= limit) break;
+        }
+      }
+      return out;
+    },
   };
 })();
