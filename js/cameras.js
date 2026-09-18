@@ -430,8 +430,8 @@
       customList = loadCustom();
       refresh();
       // 國道最快回應，當作「台灣監視器」這一步跑過的訊號（開場畫面用）
-      loadFreewayCctv().finally(() => CONAN.ui.markLoaded('cameras'));
-      autoLoadAll(); // 開站自動載入省道＋全部縣市，不需手動點按鈕
+      const freewayDone = loadFreewayCctv().finally(() => CONAN.ui.markLoaded('cameras'));
+      const countiesDone = autoLoadAll(); // 開站自動載入省道＋全部縣市，不需手動點按鈕
       initAddForm();
 
       document.getElementById('thb-load').addEventListener('click', loadThb);
@@ -444,6 +444,9 @@
         const options = [...sel.options].map((o) => ({ value: o.value, label: o.textContent }));
         loadAllCities(options, e.target);
       });
+
+      // 給 app.js 用：台灣（國道＋省道＋全部縣市）都跑過一輪才開始載國際監視器
+      return Promise.all([freewayDone, countiesDone]);
     },
     setVisible(on) {
       const v = on ? 'visible' : 'none';
@@ -472,6 +475,18 @@
         }
       }
       return out;
+    },
+    /** 找某座標附近的監視器（依距離排序），供搜尋一個地點後「順便看附近有沒有監視器」用 */
+    nearby(lat, lon, radiusKm = 3, limit = 6) {
+      const out = [];
+      for (const cam of cams.values()) {
+        const distKm = CONAN.geo.distanceNm(lat, lon, cam.lat, cam.lon) * 1.852;
+        if (distKm <= radiusKm) {
+          out.push({ id: cam.id, name: cam.name, desc: cam.desc, lat: cam.lat, lon: cam.lon, distKm });
+        }
+      }
+      out.sort((a, b) => a.distKm - b.distKm);
+      return out.slice(0, limit);
     },
   };
 })();

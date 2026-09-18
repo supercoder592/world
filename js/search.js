@@ -30,6 +30,10 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  function formatDist(km) {
+    return km < 1 ? `距離約 ${Math.round(km * 1000)} 公尺` : `距離約 ${km.toFixed(1)} 公里`;
+  }
+
   function renderResults(places, cams) {
     const el = resultsEl();
     if (!places.length && !cams.length) {
@@ -39,11 +43,16 @@
     let html = '';
     if (cams.length) {
       html += '<div class="search-group">📷 監視器</div>';
-      html += cams.map((c) => `
+      html += cams.map((c) => {
+        const desc = c.distKm != null
+          ? formatDist(c.distKm) + (c.desc ? `・${esc(c.desc)}` : '')
+          : (c.desc ? esc(c.desc) : '');
+        return `
         <button class="search-item" data-lat="${c.lat}" data-lon="${c.lon}" data-zoom="15">
           <span class="search-item-name">${esc(c.name)}</span>
-          ${c.desc ? `<span class="search-item-desc">${esc(c.desc)}</span>` : ''}
-        </button>`).join('');
+          ${desc ? `<span class="search-item-desc">${desc}</span>` : ''}
+        </button>`;
+      }).join('');
     }
     if (places.length) {
       html += '<div class="search-group">📍 地點</div>';
@@ -87,13 +96,30 @@
     }
   }
 
+  /** 監視器名稱直接比對 + 查到地點的話順便找它附近的監視器（去重，名稱比對優先） */
+  function mergeCams(nameCams, nearCams) {
+    const seen = new Set();
+    const out = [];
+    for (const c of [...nameCams, ...nearCams]) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push(c);
+      if (out.length >= 10) break;
+    }
+    return out;
+  }
+
   async function runSearch(q) {
     const seq = ++reqSeq;
     resultsEl().innerHTML = '<p class="hint search-empty">搜尋中…</p>';
-    const cams = CONAN.cameras ? CONAN.cameras.search(q) : [];
+    const nameCams = CONAN.cameras ? CONAN.cameras.search(q) : [];
     const places = await searchPlaces(q);
     if (seq !== reqSeq) return; // 這段時間使用者又輸入了新關鍵字，這批結果就丟掉
-    renderResults(places, cams);
+    // 例如搜「明道中學」查到學校座標後，即使監視器名稱裡沒這四個字，
+    // 也把附近（3 公里內）的監視器一併列出來
+    const top = places[0];
+    const nearCams = (top && CONAN.cameras) ? CONAN.cameras.nearby(top.lat, top.lon, 3, 6) : [];
+    renderResults(places, mergeCams(nameCams, nearCams));
   }
 
   function onInput() {

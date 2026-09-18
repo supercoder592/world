@@ -138,15 +138,16 @@
   });
   map.on('style.load', () => {
     map.setProjection({ type: 'globe' });
-    // 大氣層/太空背景：預設的霧化偏淡，球體邊緣看起來像半透明。改成暗色大氣
-    // ＋星空，縮小成地球時才有實體感，符合夜間偵探風的主題色調。
+    // 大氣層/太空背景：上一版 range 太靠近、color 幾乎不透明，結果整顆地球
+    // 被霧蓋成一片全黑，看不到底圖。改成只在極邊緣/太空背景加一點暗色調與
+    // 星空，range 拉遠讓霧不要吃到看得見的地表。
     map.setFog({
-      range: [0.5, 10],
-      color: 'rgba(10, 16, 26, 0.9)',
-      'high-color': 'rgba(20, 30, 55, 1)',
+      range: [2, 14],
+      color: 'rgba(10, 16, 26, 0.12)',
+      'high-color': 'rgba(20, 30, 55, 0.3)',
       'space-color': 'rgba(3, 5, 10, 1)',
-      'horizon-blend': 0.1,
-      'star-intensity': 0.35,
+      'horizon-blend': 0.04,
+      'star-intensity': 0.2,
     });
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
@@ -177,12 +178,14 @@
     markLoaded('map');
 
     /* ---------- 模組啟動（個別失敗只影響自己的圖層） ---------- */
+    let taiwanCamsReady = Promise.resolve();
     for (const [name, step, fn] of [
       ['TDX', null, () => CONAN.tdx.initForm()],
       ['飛機', 'aircraft', () => CONAN.aircraft.init(map)],
       ['船舶', 'ships', () => CONAN.ships.init(map)],
-      ['監視器', 'cameras', () => CONAN.cameras.init(map)],
-      ['國際監視器', 'camerasIntl', () => CONAN.camerasIntl.init()],
+      // 台灣監視器（國道＋省道＋全部 22 縣市）優先，回傳的 promise 讓下面
+      // 排在國際監視器之後啟動，兩邊才不會搶頻寬互相拖慢
+      ['監視器', 'cameras', () => { taiwanCamsReady = CONAN.cameras.init(map) || Promise.resolve(); }],
       ['浮標', 'buoys', () => CONAN.buoys.init(map)],
       ['地震', 'quakes', () => CONAN.quakes.init(map)],
       ['衛星', 'sats', () => CONAN.sats.init(map)],
@@ -194,6 +197,17 @@
         if (step) markLoaded(step); // 初始化就掛了也算「跑過一輪」，開場畫面不要卡住
       }
     }
+
+    // 國際監視器等台灣全部載完（不論成功失敗）才開始，台灣優先
+    Promise.resolve(taiwanCamsReady).catch(() => {}).finally(() => {
+      try {
+        CONAN.camerasIntl.init();
+      } catch (e) {
+        console.error('[國際監視器]', e);
+        showDiag(`國際監視器圖層初始化失敗：${e.message}`);
+        markLoaded('camerasIntl');
+      }
+    });
   });
 
   /* ---------- 圖層開關 ---------- */
