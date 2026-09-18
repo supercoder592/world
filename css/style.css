@@ -24,6 +24,7 @@ html, body {
 }
 
 /* ---------- 搜尋覆蓋層 ---------- */
+#search-overlay[hidden] { display: none; }
 #search-overlay {
   position: fixed; inset: 0; z-index: 2700;
   background: rgba(5, 7, 12, .88);
