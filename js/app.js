@@ -186,6 +186,7 @@
       ['浮標', 'buoys', () => CONAN.buoys.init(map)],
       ['地震', 'quakes', () => CONAN.quakes.init(map)],
       ['衛星', 'sats', () => CONAN.sats.init(map)],
+      ['搜尋', null, () => CONAN.search.init(map)],
     ]) {
       try { fn(); } catch (e) {
         console.error(`[${name}]`, e);
