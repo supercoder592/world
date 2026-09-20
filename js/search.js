@@ -34,13 +34,21 @@
     return km < 1 ? `距離約 ${Math.round(km * 1000)} 公尺` : `距離約 ${km.toFixed(1)} 公里`;
   }
 
-  function renderResults(places, cams) {
+  function renderResults(places, cams, rails) {
     const el = resultsEl();
-    if (!places.length && !cams.length) {
-      el.innerHTML = '<p class="hint search-empty">找不到符合的地點或監視器。</p>';
+    if (!places.length && !cams.length && !rails.length) {
+      el.innerHTML = '<p class="hint search-empty">找不到符合的地點、監視器或車站。</p>';
       return;
     }
     let html = '';
+    if (rails.length) {
+      html += '<div class="search-group">🚆 車站</div>';
+      html += rails.map((r) => `
+        <button class="search-item" data-lat="${r.lat}" data-lon="${r.lon}" data-zoom="14">
+          <span class="search-item-name">${esc(r.name)}</span>
+          <span class="search-item-desc">${esc(r.desc)}</span>
+        </button>`).join('');
+    }
     if (cams.length) {
       html += '<div class="search-group">📷 監視器</div>';
       html += cams.map((c) => {
@@ -113,13 +121,14 @@
     const seq = ++reqSeq;
     resultsEl().innerHTML = '<p class="hint search-empty">搜尋中…</p>';
     const nameCams = CONAN.cameras ? CONAN.cameras.search(q) : [];
+    const rails = CONAN.rail ? CONAN.rail.search(q) : [];
     const places = await searchPlaces(q);
     if (seq !== reqSeq) return; // 這段時間使用者又輸入了新關鍵字，這批結果就丟掉
     // 例如搜「明道中學」查到學校座標後，即使監視器名稱裡沒這四個字，
     // 也把附近（3 公里內）的監視器一併列出來
     const top = places[0];
     const nearCams = (top && CONAN.cameras) ? CONAN.cameras.nearby(top.lat, top.lon, 3, 6) : [];
-    renderResults(places, mergeCams(nameCams, nearCams));
+    renderResults(places, mergeCams(nameCams, nearCams), rails);
   }
 
   function onInput() {

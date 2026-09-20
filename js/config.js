@@ -64,6 +64,15 @@ CONAN.config = {
     cityCctvUrl: (city) => `https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/City/${city}?%24format=JSON`,
   },
 
+  // 鐵路（交通部 TDX）：台鐵/高鐵車站位置＋台鐵即時到離站看板。TDX 目前沒有
+  // 列車即時 GPS 位置（不像公車），能做到的就是「車站」層級的即時資訊；
+  // 高鐵 TDX 沒有即時看板 API，只放站點位置。
+  rail: {
+    traStationUrl: 'https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/Station?%24format=JSON',
+    traLiveBoardUrl: (stationId) => `https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveBoard/Station/${stationId}?%24format=JSON`,
+    thsrStationUrl: 'https://tdx.transportdata.tw/api/basic/v2/Rail/THSR/Station?%24format=JSON',
+  },
+
   // 國際監視器（各國政府開放資料，皆免金鑰）。座標、快照網址直接取自各官方
   // API；不做姿態/朝向推算（本站不需要 3D 相機姿態，只需要點位＋影像）。
   // 監視器圖層是原生 GL 聚合圖層渲染（不是逐一 DOM 元素），上萬個點也不影響
