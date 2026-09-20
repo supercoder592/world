@@ -48,6 +48,9 @@
       <span class="status-chip" id="status-sats" title="頭頂衛星（CelesTrak）">
         <span class="dot"></span>🛰️ 衛星 <b id="count-sats">–</b>
       </span>
+      <span class="status-chip" id="status-rail" title="台鐵／高鐵車站（交通部 TDX）">
+        <span class="dot"></span>🚆 車站 <b id="count-rail">–</b>
+      </span>
       <span class="clock" id="clock">--:--:--</span>
     </div>
     <button id="search-open" title="搜尋地點／監視器">🔍 搜尋</button>
@@ -65,6 +68,7 @@
         <label class="toggle" id="toggle-buoys"><input type="checkbox" id="layer-buoys" checked> 🌊 海象浮標（氣象署）</label>
         <label class="toggle"><input type="checkbox" id="layer-quakes" checked> 🌏 地震（USGS）</label>
         <label class="toggle"><input type="checkbox" id="layer-sats" checked> 🛰️ 頭頂衛星（CelesTrak）</label>
+        <label class="toggle"><input type="checkbox" id="layer-rail" checked> 🚆 鐵路車站（台鐵／高鐵）</label>
         <label class="toggle"><input type="checkbox" id="opt-trails" checked> 〰️ 顯示航跡</label>
         <label class="toggle"><input type="checkbox" id="opt-dark" checked> 🌙 夜間地圖</label>
       </section>
@@ -198,6 +202,17 @@
       </section>
 
       <section class="panel">
+        <h2>🚆 鐵路車站 — 台灣，交通部 TDX</h2>
+        <p class="hint">
+          免金鑰（匿名模式）。TDX 目前沒有列車即時 GPS 位置（不像公車有即時定位），
+          只能做到「車站」層級：點台鐵車站可看即時到離站看板（幾點到、誤點幾分）；
+          高鐵 TDX 沒有即時看板 API，僅提供車站位置，點站會連去高鐵官網查詢。
+        </p>
+        <div class="kv"><span>台鐵車站</span><b id="rail-tra-status">載入中…</b></div>
+        <div class="kv"><span>高鐵車站</span><b id="rail-thsr-status">載入中…</b></div>
+      </section>
+
+      <section class="panel">
         <h2>🔗 情報來源（官方入口）</h2>
         <ul class="links">
           <li><a href="https://1968.freeway.gov.tw/" target="_blank" rel="noopener">高速公路局 1968 即時路況</a></li>
@@ -261,6 +276,7 @@
   <script src="js/buoys.js"></script>
   <script src="js/quakes.js"></script>
   <script src="js/sats.js"></script>
+  <script src="js/rail.js"></script>
   <script src="js/search.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -246,6 +246,15 @@ details.panel[open] > summary { margin-bottom: 8px; }
   box-sizing: border-box;
 }
 
+.rail-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #241a1a; border: 1.5px solid #ff8a5c;
+  font-size: 12px;
+  box-shadow: 0 0 6px rgba(255, 138, 92, .55);
+}
+.rail-icon.thsr { border-color: #ff5c7a; box-shadow: 0 0 6px rgba(255, 92, 122, .55); }
+
 /* ---------- MapLibre 彈窗與控制列（深色） ---------- */
 .maplibregl-popup-content {
   background: var(--panel2); color: var(--text);

@@ -27,10 +27,10 @@
   const splashBar = document.getElementById('splash-bar');
   const splashPct = document.getElementById('splash-pct');
   const splashStatus = document.getElementById('splash-status');
-  const SPLASH_STEPS = ['map', 'aircraft', 'ships', 'cameras', 'camerasIntl', 'buoys', 'quakes', 'sats'];
+  const SPLASH_STEPS = ['map', 'aircraft', 'ships', 'cameras', 'camerasIntl', 'buoys', 'quakes', 'sats', 'rail'];
   const SPLASH_LABELS = {
     map: '地球模型', aircraft: '飛機航班', ships: '船舶動態', cameras: '台灣監視器',
-    camerasIntl: '國際監視器', buoys: '海象浮標', quakes: '地震目錄', sats: '衛星軌道',
+    camerasIntl: '國際監視器', buoys: '海象浮標', quakes: '地震目錄', sats: '衛星軌道', rail: '鐵路車站',
   };
   const splashDone = new Set();
   let splashHidden = false;
@@ -189,6 +189,7 @@
       ['浮標', 'buoys', () => CONAN.buoys.init(map)],
       ['地震', 'quakes', () => CONAN.quakes.init(map)],
       ['衛星', 'sats', () => CONAN.sats.init(map)],
+      ['鐵路', 'rail', () => { CONAN.rail.init(map).finally(() => markLoaded('rail')); }],
       ['搜尋', null, () => CONAN.search.init(map)],
     ]) {
       try { fn(); } catch (e) {
@@ -228,6 +229,9 @@
   });
   document.getElementById('layer-sats').addEventListener('change', (e) => {
     CONAN.sats.setVisible(e.target.checked, map);
+  });
+  document.getElementById('layer-rail').addEventListener('change', (e) => {
+    CONAN.rail.setVisible(e.target.checked, map);
   });
   document.getElementById('opt-trails').addEventListener('change', (e) => {
     CONAN.aircraft.setTrails(e.target.checked, map);
